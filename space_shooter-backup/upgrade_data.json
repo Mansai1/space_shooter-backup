@@ -1,0 +1,11 @@
+{
+    "points": 26,
+    "attack_level": 1,
+    "fire_rate_level": 1,
+    "speed_level": 2,
+    "option_level": 1,
+    "unlocked_weapons": [
+        "normal"
+    ],
+    "current_weapon": "normal"
+}
