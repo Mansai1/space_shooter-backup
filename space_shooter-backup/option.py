@@ -33,6 +33,7 @@ class Option:
         self.image = pygame.image.load(image_path).convert_alpha()
         self.image = pygame.transform.scale(self.image, (self.size, self.size))
         self.pulse_timer = 0
+        self.color = CYAN
         
     def update(self):
         """子機の位置と状態を更新"""

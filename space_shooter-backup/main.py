@@ -188,14 +188,14 @@ class Game:
             self.level_system.total_enemies_defeated
         )
         if boss_type:
-            boss = self.boss_manager.spawn_boss(boss_type, self.font) # self.font を渡す
+            boss = self.boss_manager.spawn_boss(boss_type, self.font, self.level_system.current_level)
             if boss:
-                # ボス出現時の特別処理（効果音など）
-                # play_sound('enemy_hit')  # ボス出現音（適切な音があれば変更）
-                print(f"Boss spawned: {boss_type}")  # デバッグ用
+                print(f"Boss spawned: {boss_type}")
         
         # ボスの更新
-        boss_bullets = self.boss_manager.update()
+        enemy_sprites = pygame.sprite.Group(*self.enemies)
+        all_sprites = pygame.sprite.Group(self.player, enemy_sprites)
+        boss_bullets = self.boss_manager.update(self.player, all_sprites)
         if boss_bullets:
             self.boss_bullets.extend(boss_bullets)
         

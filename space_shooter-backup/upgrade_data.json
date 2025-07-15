@@ -1,11 +1,12 @@
 {
-    "points": 26,
+    "points": 769.0,
     "attack_level": 1,
     "fire_rate_level": 1,
-    "speed_level": 2,
-    "option_level": 1,
+    "speed_level": 1,
+    "option_level": 0,
     "unlocked_weapons": [
-        "normal"
+        "normal",
+        "laser_weapon"
     ],
-    "current_weapon": "normal"
+    "current_weapon": "laser_weapon"
 }

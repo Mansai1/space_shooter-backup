@@ -4,9 +4,10 @@ import math
 from settings import *
 from bullet import Bullet
 
-class Enemy:
+class Enemy(pygame.sprite.Sprite):
     """敵の基底クラス"""
     def __init__(self, x, y, player, health=1, speed=ENEMY_SPEED, color=RED, size=ENEMY_SIZE):
+        super().__init__()
         self.x = x
         self.y = y
         self.player = player

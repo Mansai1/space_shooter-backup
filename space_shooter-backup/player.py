@@ -5,8 +5,9 @@ from settings import *
 from option import OptionManager
 from bullet import Bullet, Laser, Bomb # Bullet, Laser, Bombを直接インポート
 
-class Player:
+class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, upgrade_data=None):
+        super().__init__()
         self.x = x
         self.y = y
         self.level = 1
