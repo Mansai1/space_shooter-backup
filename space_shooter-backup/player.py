@@ -45,7 +45,7 @@ class Player(pygame.sprite.Sprite):
         self.invincible_timer = 0
         
         self.option_manager = OptionManager(self)
-        self.on_level_up(1) # 初期の子機を設定
+        # self.on_level_up(1) # 初期の子機を設定  # ★ 削除
 
     def load_default_upgrades(self):
         return {"points": 0, "attack_level": 1, "fire_rate_level": 1, "speed_level": 1, "option_level": 0, "unlocked_weapons": ["normal"], "current_weapon": "normal"}
@@ -78,23 +78,11 @@ class Player(pygame.sprite.Sprite):
         self.level = new_level # プレイヤーの現在のレベルを更新
         self.option_manager.update_options(self.option_count) # 子機はアップグレードレベルで管理
 
-        # レベルに応じて機能を追加
-        if new_level >= 2: self.has_triple_shot = True
-        if new_level >= 4: self.has_rapid_fire = True
-        if new_level >= 6:
-            self.has_shield = True
-            self.shield_active = True
-        if new_level >= 8: self.has_speed_boost = True
-        if new_level >= 10: self.has_laser = True
-        if new_level >= 12: self.has_bomb = True
-        
+
     def update(self):
         keys = pygame.key.get_pressed()
         
         current_speed = self.speed
-        if self.has_speed_boost: # レベルアップによるスピードブースト
-            current_speed *= 1.5
-
         if keys[pygame.K_LEFT] or keys[pygame.K_a]: self.x -= current_speed
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]: self.x += current_speed
         if keys[pygame.K_UP] or keys[pygame.K_w]: self.y -= current_speed

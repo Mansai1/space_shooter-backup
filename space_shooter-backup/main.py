@@ -15,6 +15,7 @@ from sound_manager import init_sound_system, play_sound
 from level_system import LevelSystem, DifficultyManager
 from level_ui import draw_level_info, draw_level_up_notification, draw_level_transition, draw_stats_panel, draw_difficulty_info, draw_stage_clear, draw_special_gauge
 from boss.boss import BossManager  # ボス管理クラスをインポート
+from boss.environmental_boss import EnvironmentalBoss
 from boss.boss_ui import draw_boss_health_bar, draw_boss_spell_card_name # 追加
 from level_up_upgrade_screen import LevelUpUpgradeScreen # レベルアップ時アップグレード画面
 
@@ -526,6 +527,25 @@ class Game:
                     particle['y'] = enemy.y
                 self.particles.extend(explosion_particles)
                 break
+        
+        # プレイヤーと環境ボス移動壁の当たり判定
+        current_boss = self.boss_manager.get_current_boss()
+        if current_boss and isinstance(current_boss, EnvironmentalBoss):
+            for wall in current_boss.moving_walls:
+                if check_collision(self.player.rect, wall.rect):
+                    if self.player.take_damage():  # シールドで防げなかった場合
+                        self.lives -= 1
+                        
+                        # サウンド再生
+                        play_sound('player_hit')
+                    
+                        # プレイヤー被弾エフェクト
+                        explosion_particles = create_explosion_effect()
+                        for particle in explosion_particles:
+                            particle['x'] = self.player.x
+                            particle['y'] = self.player.y
+                        self.particles.extend(explosion_particles)
+                    break
         
         # ボスとプレイヤーの当たり判定
         current_boss = self.boss_manager.get_current_boss()
