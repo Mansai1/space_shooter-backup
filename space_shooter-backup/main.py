@@ -18,6 +18,7 @@ from boss.boss import BossManager  # ボス管理クラスをインポート
 from boss.environmental_boss import EnvironmentalBoss
 from boss.boss_ui import draw_boss_health_bar, draw_boss_spell_card_name # 追加
 from level_up_upgrade_screen import LevelUpUpgradeScreen # レベルアップ時アップグレード画面
+from damage_number import DamageNumber # 追加
 
 class Game:
     def __init__(self):
@@ -33,6 +34,13 @@ class Game:
         # スクリプトのディレクトリパスを取得
         self.base_dir = os.path.dirname(__file__)
         self.boss_manager = BossManager(self.base_dir)  # ボス管理を追加し、base_dirを渡す
+
+        # 背景画像の読み込みと設定
+        background_path = os.path.join(self.base_dir, "assets", "img", "game_back.png")
+        self.background_image = pygame.image.load(background_path).convert()
+        self.bg_height = self.background_image.get_height()
+        self.scroll_y = 0
+        self.scroll_speed = 1
         
         self.level_up_notification_timer = 0
         self.level_transition_timer = 0
@@ -79,6 +87,7 @@ class Game:
         self.special_attacks = []
         self.powerups = []
         self.particles = []
+        self.damage_numbers = [] # ダメージ数値管理リストを追加
         self.score = 0
         self.lives = 3 # ライフ制に変更
 
@@ -175,6 +184,12 @@ class Game:
         if self.game_state != "PLAYING" or self.is_paused or self.level_up_upgrade_screen.is_active:
             return
             
+        # 背景スクロール（ボス戦以外）
+        if not self.boss_manager.get_current_boss():
+            self.scroll_y += self.scroll_speed
+            if self.scroll_y >= self.bg_height:
+                self.scroll_y = 0
+
         # 現在のレベル設定を取得
         current_level_config = self.get_current_level_config()
         
@@ -263,13 +278,14 @@ class Game:
         
         # 敵の更新
         for enemy in self.enemies[:]:
-            bullet = enemy.update()
-            if bullet:
-                self.enemy_bullets.append(bullet)
-
+            new_bullets = enemy.update()  # 戻り値を修正
+            if new_bullets:  # 弾が生成された場合
+                self.enemy_bullets.extend(new_bullets)  # 弾幕を追加
+            
+            # 敵が画面外に出たら削除
             if not enemy.active:
                 self.enemies.remove(enemy)
-            elif enemy.should_shoot() and random.random() < 0.3:
+            elif enemy.should_shoot() and random.random() < 0.3:  # 既存の処理も残す
                 # スナイパー敵の場合は狙い撃ち
                 if isinstance(enemy, SniperEnemy):
                     enemy_bullet = enemy.shoot(self.player.x, self.player.y)
@@ -282,6 +298,12 @@ class Game:
         
         # パーティクルの更新
         update_particles(self.particles)
+
+        # ダメージ数値の更新
+        for dn in self.damage_numbers[:]:
+            dn.update()
+            if not dn.active:
+                self.damage_numbers.remove(dn)
         
         # ゲームオーバー判定
         if self.lives <= 0:
@@ -373,6 +395,9 @@ class Game:
                         # 敵にダメージを与える
                         damage = getattr(bullet, 'damage', 1)
                         was_destroyed = enemy.take_damage(damage)
+
+                        # ダメージ数値を生成
+                        self.damage_numbers.append(DamageNumber(enemy.x, enemy.y, damage, self.small_font, YELLOW))
                         
                         if was_destroyed:
                             # 敵が撃破された場合のみ削除
@@ -426,6 +451,9 @@ class Game:
                     # ボスにダメージを与える
                     damage = getattr(bullet, 'damage', 1)
                     was_destroyed = current_boss.take_damage(damage)
+
+                    # ダメージ数値を生成
+                    self.damage_numbers.append(DamageNumber(current_boss.x, current_boss.y, damage, self.small_font, RED))
                     
                     if was_destroyed:
                         # ボス撃破時の処理
@@ -589,7 +617,11 @@ class Game:
     
     def draw(self):
         """描画処理"""
-        self.screen.fill(BLACK)
+        # 背景画像のスクロール描画
+        y1 = self.scroll_y
+        y2 = self.scroll_y - self.bg_height
+        self.screen.blit(self.background_image, (0, y1))
+        self.screen.blit(self.background_image, (0, y2))
 
         if self.game_state == "TITLE":
             draw_text(self.screen, "Space Shooter", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 4, self.font, WHITE)
@@ -644,6 +676,10 @@ class Game:
             # パーティクルの描画
             draw_particles(self.screen, self.particles)
 
+            # ダメージ数値の描画
+            for dn in self.damage_numbers:
+                dn.draw(self.screen)
+
             # --- UI の描画 ---
             draw_score(self.screen, self.score, self.font, x=50, y=30)
             draw_lives(self.screen, self.lives, self.font, x=50, y=60)
@@ -680,6 +716,8 @@ class Game:
             for powerup in self.powerups: powerup.draw(self.screen)
             for attack in self.special_attacks: attack.draw(self.screen)
             draw_particles(self.screen, self.particles)
+            for dn in self.damage_numbers:
+                dn.draw(self.screen)
 
             # --- UIも背景として描画 ---
             draw_score(self.screen, self.score, self.font, x=50, y=30)

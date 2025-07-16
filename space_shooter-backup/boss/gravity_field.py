@@ -9,7 +9,7 @@ class GravityField:
         self.y = random.randint(100, SCREEN_HEIGHT - 100)
         self.radius = 80
         self.strength = 0.5
-        self.move_speed = 1
+        self.move_speed = 1.5 # 重力場の移動速度を上げる
         self.direction = random.uniform(0, 2 * math.pi)
         self.color = (150, 150, 255, 100) # 半透明の青
         self.surface = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA)

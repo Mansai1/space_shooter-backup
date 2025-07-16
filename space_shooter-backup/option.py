@@ -143,39 +143,23 @@ class OptionManager:
                 self.remove_option()
         
         # 子機の振る舞いはプレイヤーレベルに依存させる
-        self.update_option_behavior(self.player.level)
+        self.update_option_behavior()
     
-    def get_option_count_for_level(self, level):
-        """レベルに応じた子機数を取得"""
-        if level >= 8:
-            return 4  # レベル8以降は最大4機
-        elif level >= 6:
-            return 3  # レベル6-7は3機
-        elif level >= 4:
-            return 2  # レベル4-5は2機
-        elif level >= 2:
-            return 1  # レベル2-3は1機
-        else:
-            return 0  # レベル1は子機なし
-    
-    def update_option_behavior(self, level):
-        """レベルに応じて子機の動作を変更"""
+    def update_option_behavior(self):
+        """子機の数に応じて動作を変更"""
         num_options = len(self.options)
+        if num_options == 0:
+            return
+
         for i, option in enumerate(self.options):
-            if level >= 10:
-                # レベル10以降は軌道運動モード
-                option.set_orbit_mode(True, 60)  # 軌道半径を60に統一
+            if num_options >= 3:
+                # 子機が3機以上の場合、軌道運動モード
+                option.set_orbit_mode(True, 60)
                 option.orbit_angle = i * (360 / num_options) if num_options > 0 else 0
                 option.color = MAGENTA
                 option.shoot_interval = 15  # 射撃間隔短縮
-            elif level >= 7:
-                # レベル7以降は高速追従（子機ごとに遅延を変更）
-                option.set_orbit_mode(False)
-                option.follow_delay = 5 + i * 3  # 子機ごとに遅延を変える
-                option.color = YELLOW
-                option.shoot_interval = 18
             else:
-                # 通常の追従モード
+                # 子機が2機以下の場合、追従モード
                 option.set_orbit_mode(False)
                 option.follow_delay = 10 + i * 5
                 option.color = CYAN

@@ -7,7 +7,7 @@ class MovingWall(pygame.sprite.Sprite):
         super().__init__()
         self.width = 20
         self.height = 150
-        self.speed = 3
+        self.speed = 4 # 壁の移動速度を上げる
         
         # 出現位置と移動方向をランダムに決定
         if random.random() > 0.5:

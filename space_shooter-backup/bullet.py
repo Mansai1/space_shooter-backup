@@ -14,7 +14,7 @@ class Bullet:
         
         # angle_overrideが指定されている場合はそれを優先
         if angle_override is not None:
-            self.angle = math.radians(angle_override)
+            self.angle = math.radians(angle_override) # 角度は度で受け取り、ラジアンに変換
         else:
             self.angle = math.radians(angle)
         

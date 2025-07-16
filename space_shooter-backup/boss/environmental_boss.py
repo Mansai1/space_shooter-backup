@@ -28,7 +28,7 @@ class EnvironmentalBoss:
         }
 
         self.wall_spawn_timer = 0
-        self.wall_spawn_interval = 2.5 * 60 # 2.5秒
+        self.wall_spawn_interval = 2.0 * 60 # 2.0秒 壁の出現間隔を短くする
 
         self.gravity_spawn_timer = 0
         self.gravity_spawn_interval = 4 * 60 # 4秒

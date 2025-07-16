@@ -8,6 +8,7 @@ from enemy.sniperEnemy import SniperEnemy
 from enemy.shieldEnemy import ShieldEnemy
 from enemy.stopperEnemy import StopperEnemy
 from enemy.kamikazeEnemy import KamikazeEnemy
+from enemy.barrage_enemy import BarrageEnemy
 
 class EnemyFactory:
     """敵生成のファクトリークラス"""
@@ -21,7 +22,8 @@ class EnemyFactory:
         'sniper': SniperEnemy,
         'shield': ShieldEnemy,
         'stopper': StopperEnemy,
-        'kamikaze': KamikazeEnemy
+        'kamikaze': KamikazeEnemy,
+        'barrage': BarrageEnemy
     }
     
     @classmethod

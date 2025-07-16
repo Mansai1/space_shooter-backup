@@ -50,10 +50,10 @@ class LevelSystem:
                 'enemy_health_multiplier': 1.2,
                 'powerup_spawn_rate': 450,
                 'wave_spawn_interval': 240,
-                'enemy_types': ['basic', 'fast', 'tank', 'zigzag', 'kamikaze', 'sniper'],
+                'enemy_types': ['basic', 'fast', 'tank', 'zigzag', 'kamikaze', 'sniper', 'barrage'],
                 'max_enemies_on_screen': 14,
                 'experience_multiplier': 1.3,  # レベル4の経験値倍率
-                'description': 'スナイパーエネミーが登場'
+                'description': 'スナイパー＆弾幕エネミーが登場'
             },
             5: {
                 'enemy_spawn_rate': 40,
@@ -61,7 +61,7 @@ class LevelSystem:
                 'enemy_health_multiplier': 1.3,
                 'powerup_spawn_rate': 400,
                 'wave_spawn_interval': 220,
-                'enemy_types': ['basic', 'fast', 'tank', 'zigzag', 'kamikaze', 'sniper', 'shield'],
+                'enemy_types': ['basic', 'fast', 'tank', 'zigzag', 'kamikaze', 'sniper', 'shield', 'barrage'],
                 'max_enemies_on_screen': 16,
                 'experience_multiplier': 1.4,  # レベル5の経験値倍率
                 'description': 'シールドエネミーが登場'
@@ -72,7 +72,7 @@ class LevelSystem:
                 'enemy_health_multiplier': 1.4,
                 'powerup_spawn_rate': 350,
                 'wave_spawn_interval': 200,
-                'enemy_types': ['basic', 'fast', 'tank', 'zigzag', 'kamikaze', 'sniper', 'shield', 'stopper'],
+                'enemy_types': ['basic', 'fast', 'tank', 'zigzag', 'kamikaze', 'sniper', 'shield', 'stopper', 'barrage'],
                 'max_enemies_on_screen': 18,
                 'experience_multiplier': 1.5,  # レベル6の経験値倍率
                 'description': 'ストッパーエネミーが登場'
@@ -86,7 +86,7 @@ class LevelSystem:
             'enemy_health_multiplier': 1.5,
             'powerup_spawn_rate': 300,
             'wave_spawn_interval': 180,
-            'enemy_types': ['basic', 'fast', 'tank', 'zigzag', 'kamikaze', 'sniper', 'shield', 'stopper'],
+            'enemy_types': ['basic', 'fast', 'tank', 'zigzag', 'kamikaze', 'sniper', 'shield', 'stopper', 'barrage'],
             'max_enemies_on_screen': 20,
             'experience_multiplier': 1.6,  # レベル7以降のベース経験値倍率
             'description': 'エンドレスモード'
