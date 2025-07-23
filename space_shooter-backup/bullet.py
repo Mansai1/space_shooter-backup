@@ -4,13 +4,14 @@ import random
 from settings import *
 
 class Bullet:
-    def __init__(self, x, y, direction_y=-1, angle=0, player_bullet=None, angle_override=None, bullet_type="normal", damage=1):
+    def __init__(self, x, y, direction_y=-1, angle=0, player_bullet=None, angle_override=None, bullet_type="normal", damage=1, game=None):
         self.x = x
         self.y = y
         self.size = BULLET_SIZE
         self.speed = BULLET_SPEED
         self.direction_y = direction_y  # -1で上向き、1で下向き
         self.bullet_type = bullet_type  # "normal", "option", "homing", "boss" など
+        self.game = game  # 追加: Gameインスタンス参照
         
         # angle_overrideが指定されている場合はそれを優先
         if angle_override is not None:
@@ -64,10 +65,10 @@ class Bullet:
         self.x += self.vel_x
         self.y += self.vel_y
         self.rect.center = (self.x, self.y)
-        
-        # 画面外に出たら非アクティブに
-        if (self.y < -10 or self.y > SCREEN_HEIGHT + 10 or 
-            self.x < -10 or self.x > SCREEN_WIDTH + 10):
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        if (self.y < -10 or self.y > height + 10 or 
+            self.x < -10 or self.x > width + 10):
             self.active = False
     
     def draw(self, screen):
@@ -176,7 +177,8 @@ class Laser:
             self.rect = pygame.Rect(self.x - self.width//2, self.y, self.width, self.length)
         
         # 画面外に出たら非アクティブに
-        if (self.y < -self.length or self.y > SCREEN_HEIGHT + self.length):
+        height = SCREEN_HEIGHT  # Laserクラスにはgameパラメータがないため、固定値を使用
+        if (self.y < -self.length or self.y > height + self.length):
             self.active = False
         
         # 最大ヒット数に達したら非アクティブに
@@ -237,7 +239,8 @@ class Bomb:
             self.rect.center = (self.x, self.y)
             
             # 画面外に出たら爆発
-            if (self.y < -10 or self.y > SCREEN_HEIGHT + 10):
+            height = SCREEN_HEIGHT  # Bombクラスにはgameパラメータがないため、固定値を使用
+            if (self.y < -10 or self.y > height + 10):
                 self.explode()
         else:
             # 爆発エフェクトの更新
@@ -306,13 +309,13 @@ class Bomb:
 class SpreadBullet:
     """拡散弾クラス - 複数の弾を一度に生成"""
     @staticmethod
-    def create_spread(x, y, num_bullets=3, spread_angle=30, bullet_type="normal"):
+    def create_spread(x, y, num_bullets=3, spread_angle=30, bullet_type="normal", game=None):
         """拡散弾を生成"""
         bullets = []
         center_angle = 0  # 中央は真上
         
         if num_bullets == 1:
-            bullets.append(Bullet(x, y, direction_y=-1, bullet_type=bullet_type))
+            bullets.append(Bullet(x, y, direction_y=-1, bullet_type=bullet_type, game=game))
         else:
             for i in range(num_bullets):
                 # 角度を計算（中央から左右に分散）
@@ -324,7 +327,7 @@ class SpreadBullet:
                     angle_offset = (i - num_bullets / 2 + 0.5) * (spread_angle / num_bullets)
                 
                 angle = center_angle + angle_offset
-                bullets.append(Bullet(x, y, angle_override=angle - 90, bullet_type=bullet_type))  # -90で上向きに調整
+                bullets.append(Bullet(x, y, angle_override=angle - 90, bullet_type=bullet_type, game=game))  # -90で上向きに調整
         
         return bullets
 
@@ -345,26 +348,26 @@ class OptionBulletManager:
     """子機専用の弾管理クラス"""
     
     @staticmethod
-    def create_level_appropriate_bullets(x, y, level, target_enemy=None):
+    def create_level_appropriate_bullets(x, y, level, target_enemy=None, game=None):
         """レベルに応じた子機の弾を生成"""
         bullets = []
         
         if level >= 12:
             # レベル12以降：追尾弾
             if target_enemy:
-                bullets.append(HomingBullet(x, y, target=target_enemy))
+                bullets.append(HomingBullet(x, y, target=target_enemy, game=game))
             else:
-                bullets.append(Bullet(x, y, bullet_type="option"))
+                bullets.append(Bullet(x, y, bullet_type="option", game=game))
         elif level >= 8:
             # レベル8-11：3方向拡散弾
-            bullets = SpreadBullet.create_spread(x, y, num_bullets=3, spread_angle=20, bullet_type="option")
+            bullets = SpreadBullet.create_spread(x, y, num_bullets=3, spread_angle=20, bullet_type="option", game=game)
         elif level >= 5:
             # レベル5-7：強化弾（ダメージ3）
-            bullet = Bullet(x, y, bullet_type="option", damage=3)
+            bullet = Bullet(x, y, bullet_type="option", damage=3, game=game)
             bullets.append(bullet)
         else:
             # レベル2-4：通常の子機弾
-            bullets.append(Bullet(x, y, bullet_type="option"))
+            bullets.append(Bullet(x, y, bullet_type="option", game=game))
         
         return bullets
     

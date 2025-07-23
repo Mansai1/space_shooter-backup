@@ -6,7 +6,7 @@ from settings import *
 
 class StopperEnemy(Enemy):
     """ストッパー敵 - 画面中央で一時停止して集中攻撃"""
-    def __init__(self, x, y, player, level_multipliers=None):
+    def __init__(self, x, y, player, level_multipliers=None, game=None):
         health = 2
         speed = ENEMY_SPEED * 1.2
         
@@ -14,7 +14,7 @@ class StopperEnemy(Enemy):
             health = max(1, int(health * level_multipliers.get('health', 1.0)))
             speed = speed * level_multipliers.get('speed', 1.0)
             
-        super().__init__(x, y, player, health, speed, (255, 255, 0), ENEMY_SIZE)
+        super().__init__(x, y, player, health, speed, (255, 255, 0), ENEMY_SIZE, game=game)
         self.enemy_type = "stopper"
         self.score_value = ENEMY_SCORE * 2.5
         self.state = "moving"  # moving, stopping
@@ -24,10 +24,12 @@ class StopperEnemy(Enemy):
         
     def move(self):
         """段階的な移動パターン"""
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        
         if self.state == "moving":
             self.y += self.speed
             # 画面中央付近で停止
-            if self.y >= SCREEN_HEIGHT // 3:
+            if self.y >= height // 3:
                 self.state = "stopping"
                 self.stop_timer = 0
                 
@@ -51,6 +53,10 @@ class StopperEnemy(Enemy):
                 self.shoot_interval = random.randint(60, 120)
                 return True
         return False
+    
+    def update(self):
+        """基底クラスのupdateメソッドを呼び出し"""
+        return super().update()
     
     def draw(self, screen):
         """ストッパー敵は八角形で描画"""

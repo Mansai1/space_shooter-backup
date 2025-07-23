@@ -6,7 +6,7 @@ from settings import *
 class BossBullet:
     """ボス専用弾丸クラス - 複雑な動作パターンを持つ"""
     
-    def __init__(self, x, y, vx, vy, bullet_type="normal", color=WHITE, size=8, damage=1):
+    def __init__(self, x, y, vx, vy, bullet_type="normal", color=WHITE, size=8, damage=1, game=None):
         self.x = float(x)
         self.y = float(y)
         self.vx = float(vx)
@@ -15,6 +15,7 @@ class BossBullet:
         self.color = color
         self.size = size
         self.damage = damage
+        self.game = game  # 追加: Gameインスタンス参照
         
         # 弾丸の状態
         self.active = True
@@ -40,8 +41,10 @@ class BossBullet:
         if self.bullet_type == "homing":
             # 誘導弾
             self.homing_strength = 0.02
-            self.target_x = SCREEN_WIDTH // 2
-            self.target_y = SCREEN_HEIGHT - 100
+            width = self.game.current_width if self.game else SCREEN_WIDTH
+            height = self.game.current_height if self.game else SCREEN_HEIGHT
+            self.target_x = width // 2
+            self.target_y = height - 100
             
         elif self.bullet_type == "accelerating":
             # 加速弾
@@ -133,8 +136,10 @@ class BossBullet:
         
         # 画面外チェック
         margin = 50
-        if (self.x < -margin or self.x > SCREEN_WIDTH + margin or
-            self.y < -margin or self.y > SCREEN_HEIGHT + margin):
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        if (self.x < -margin or self.x > width + margin or
+            self.y < -margin or self.y > height + margin):
             if self.bullet_type != "bouncing":
                 self.active = False
         
@@ -234,15 +239,19 @@ class BossBullet:
         next_x = self.x + self.vx
         next_y = self.y + self.vy
         
+        # 動的な画面サイズを取得
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        
         # 壁との衝突判定
         bounced = False
         
-        if next_x <= 0 or next_x >= SCREEN_WIDTH:
+        if next_x <= 0 or next_x >= width:
             self.vx = -self.vx * self.bounce_decay
             self.bounce_count -= 1
             bounced = True
         
-        if next_y <= 0 or next_y >= SCREEN_HEIGHT:
+        if next_y <= 0 or next_y >= height:
             self.vy = -self.vy * self.bounce_decay
             self.bounce_count -= 1
             bounced = True
@@ -278,7 +287,8 @@ class BossBullet:
                     self.x, self.y, new_vx, new_vy,
                     bullet_type="normal",
                     color=self.color,
-                    size=self.size - 2
+                    size=self.size - 2,
+                    game=self.game
                 )
                 new_bullets.append(new_bullet)
             
@@ -315,7 +325,8 @@ class BossBullet:
                     self.x, self.y, new_vx, new_vy,
                     bullet_type="normal",
                     color=ORANGE,
-                    size=6
+                    size=6,
+                    game=self.game
                 )
                 new_bullets.append(new_bullet)
             
@@ -495,31 +506,31 @@ class BulletPatterns:
     """弾幕パターン生成クラス"""
     
     @staticmethod
-    def create_circle_pattern(center_x, center_y, bullet_count, speed, color=WHITE, bullet_type="normal"):
+    def create_circle_pattern(center_x, center_y, bullet_count, speed, color=WHITE, bullet_type="normal", game=None):
         """円形弾幕パターン"""
         bullets = []
         for i in range(bullet_count):
             angle = i * (360 / bullet_count) * math.pi / 180
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
-            bullet = BossBullet(center_x, center_y, vx, vy, bullet_type, color)
+            bullet = BossBullet(center_x, center_y, vx, vy, bullet_type, color, game=game)
             bullets.append(bullet)
         return bullets
     
     @staticmethod
-    def create_spiral_pattern(center_x, center_y, bullet_count, speed, spiral_factor, color=WHITE):
+    def create_spiral_pattern(center_x, center_y, bullet_count, speed, spiral_factor, color=WHITE, game=None):
         """螺旋弾幕パターン"""
         bullets = []
         for i in range(bullet_count):
             angle = i * spiral_factor * math.pi / 180
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
-            bullet = BossBullet(center_x, center_y, vx, vy, "normal", color)
+            bullet = BossBullet(center_x, center_y, vx, vy, "normal", color, game=game)
             bullets.append(bullet)
         return bullets
     
     @staticmethod
-    def create_aimed_pattern(center_x, center_y, target_x, target_y, bullet_count, speed, spread, color=WHITE):
+    def create_aimed_pattern(center_x, center_y, target_x, target_y, bullet_count, speed, spread, color=WHITE, game=None):
         """プレイヤー狙い弾幕パターン"""
         bullets = []
         base_angle = math.atan2(target_y - center_y, target_x - center_x)
@@ -529,12 +540,12 @@ class BulletPatterns:
             angle = base_angle + angle_offset
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
-            bullet = BossBullet(center_x, center_y, vx, vy, "normal", color)
+            bullet = BossBullet(center_x, center_y, vx, vy, "normal", color, game=game)
             bullets.append(bullet)
         return bullets
     
     @staticmethod
-    def create_random_pattern(center_x, center_y, bullet_count, min_speed, max_speed, color=WHITE):
+    def create_random_pattern(center_x, center_y, bullet_count, min_speed, max_speed, color=WHITE, game=None):
         """ランダム弾幕パターン"""
         bullets = []
         for i in range(bullet_count):
@@ -542,6 +553,6 @@ class BulletPatterns:
             speed = random.uniform(min_speed, max_speed)
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
-            bullet = BossBullet(center_x, center_y, vx, vy, "normal", color)
+            bullet = BossBullet(center_x, center_y, vx, vy, "normal", color, game=game)
             bullets.append(bullet)
         return bullets

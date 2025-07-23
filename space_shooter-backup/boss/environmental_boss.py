@@ -5,7 +5,18 @@ from boss.moving_wall import MovingWall
 from boss.gravity_field import GravityField
 
 class EnvironmentalBoss:
-    def __init__(self, x, y, player_level):
+    # 画像をクラス変数として一度だけロード
+    image = None
+    @classmethod
+    def load_image(cls):
+        if cls.image is None:
+            import os
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            img_path = os.path.join(base_dir, 'assets', 'img', 'environmental.png')
+            cls.image = pygame.image.load(img_path).convert_alpha()
+
+    def __init__(self, x, y, player_level, game=None):
+        self.load_image()
         self.name = "環境操作型中ボス"
         self.max_hp = player_level * 150 # HPを少し増加
         self.hp = self.max_hp
@@ -13,7 +24,7 @@ class EnvironmentalBoss:
         self.current_phase = 1
         self.x = x
         self.y = y
-        self.size = (80, 80)
+        self.size = (120, 120)
         self.rect = pygame.Rect(x - self.size[0] // 2, y - self.size[1] // 2, self.size[0], self.size[1])
         self.move_speed = 2
         self.active = True
@@ -21,6 +32,7 @@ class EnvironmentalBoss:
         self.flash_timer = 0
         self.moving_walls = pygame.sprite.Group()
         self.gravity_fields = []
+        self.game = game  # 追加: Gameインスタンス参照
 
         self.phase_transition_hp = {
             2: self.max_hp * 0.66,
@@ -92,7 +104,7 @@ class EnvironmentalBoss:
         self.wall_spawn_timer += 1
         if self.wall_spawn_timer >= self.wall_spawn_interval:
             self.wall_spawn_timer = 0
-            wall = MovingWall()
+            wall = MovingWall(game=self.game)
             self.moving_walls.add(wall)
             all_sprites.add(wall)
 
@@ -100,7 +112,7 @@ class EnvironmentalBoss:
         self.gravity_spawn_timer += 1
         if len(self.gravity_fields) < 3 and self.gravity_spawn_timer > self.gravity_spawn_interval:
             self.gravity_spawn_timer = 0
-            self.gravity_fields.append(GravityField())
+            self.gravity_fields.append(GravityField(game=self.game))
 
     def update_phase_3(self):
         current_time = pygame.time.get_ticks()
@@ -115,16 +127,19 @@ class EnvironmentalBoss:
 
     def draw(self, screen):
         if self.active:
-            color = (120, 0, 180)
-            if self.flash_timer > 0:
-                color = RED
-
-            pygame.draw.rect(screen, color, self.rect)
+            if self.image:
+                img = pygame.transform.scale(self.image, self.size)
+                rect = img.get_rect(center=(self.x, self.y))
+                screen.blit(img, rect)
+            else:
+                color = (120, 0, 180)
+                if self.flash_timer > 0:
+                    color = RED
+                pygame.draw.rect(screen, color, self.rect)
             # self.draw_health_bar(screen) # 描画はmainループのUI関数に任せる
             self.moving_walls.draw(screen)
             for field in self.gravity_fields:
                 field.draw(screen)
-
             if self.darkness_active:
                 self.draw_darkness(screen)
 

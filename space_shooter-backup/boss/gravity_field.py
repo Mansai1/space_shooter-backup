@@ -4,9 +4,12 @@ import random
 from settings import *
 
 class GravityField:
-    def __init__(self):
-        self.x = random.randint(100, SCREEN_WIDTH - 100)
-        self.y = random.randint(100, SCREEN_HEIGHT - 100)
+    def __init__(self, game=None):
+        self.game = game  # 追加: Gameインスタンス参照
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        self.x = random.randint(100, width - 100)
+        self.y = random.randint(100, height - 100)
         self.radius = 80
         self.strength = 0.5
         self.move_speed = 1.5 # 重力場の移動速度を上げる
@@ -19,11 +22,12 @@ class GravityField:
         # ゆっくり移動
         self.x += self.move_speed * math.cos(self.direction)
         self.y += self.move_speed * math.sin(self.direction)
-
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
         # 画面端で反射
-        if self.x - self.radius < 0 or self.x + self.radius > SCREEN_WIDTH:
+        if self.x - self.radius < 0 or self.x + self.radius > width:
             self.direction = math.pi - self.direction
-        if self.y - self.radius < 0 or self.y + self.radius > SCREEN_HEIGHT:
+        if self.y - self.radius < 0 or self.y + self.radius > height:
             self.direction = -self.direction
 
     def draw(self, screen):

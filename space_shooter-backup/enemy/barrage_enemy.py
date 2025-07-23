@@ -7,7 +7,18 @@ from settings import *
 
 class BarrageEnemy(Enemy):
     """弾幕を放つ特殊な敵"""
-    def __init__(self, x, y, player, level_multipliers=None):
+    # 画像をクラス変数として一度だけロード
+    image = None
+    @classmethod
+    def load_image(cls):
+        if cls.image is None:
+            import os
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            img_path = os.path.join(base_dir, 'assets', 'img', 'barrage.png')
+            cls.image = pygame.image.load(img_path).convert_alpha()
+
+    def __init__(self, x, y, player, level_multipliers=None, game=None):
+        self.load_image()
         health = 5 # 少しタフにする
         speed = ENEMY_SPEED * 0.8 # 少し遅め
         
@@ -15,7 +26,7 @@ class BarrageEnemy(Enemy):
             health = max(1, int(health * level_multipliers.get('health', 1.0)))
             speed = speed * level_multipliers.get('speed', 1.0)
             
-        super().__init__(x, y, player, health, speed, PURPLE, ENEMY_SIZE * 1.2) # 紫色で少し大きく
+        super().__init__(x, y, player, health, speed, PURPLE, int(ENEMY_SIZE * 1.7), game=game) # 紫色でさらに大きく
         self.enemy_type = "barrage"
         self.score_value = ENEMY_SCORE * 3
         
@@ -25,7 +36,8 @@ class BarrageEnemy(Enemy):
         
         # 移動パターン
         self.state = "descending" # descending, holding
-        self.hold_y = random.randint(SCREEN_HEIGHT // 5, SCREEN_HEIGHT // 3)
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        self.hold_y = random.randint(height // 5, height // 3)
 
     def move(self):
         """移動ロジック"""
@@ -39,7 +51,15 @@ class BarrageEnemy(Enemy):
     
     def update(self):
         """敵の更新処理をオーバーライド"""
+        self.move_timer += 1
         self.move()
+        self.update_rect()
+        
+        # 画面外で非アクティブ化（基底クラスの処理を追加）
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        if self.y > height + self.size or self.y < -self.size:
+            self.active = False
 
         # 弾幕の発射判定
         bullets = []
@@ -61,17 +81,22 @@ class BarrageEnemy(Enemy):
         num_bullets = 16
         for i in range(num_bullets):
             angle_deg = i * (360 / num_bullets) # 角度を度数法で計算
-            bullets.append(Bullet(self.x, self.y, player_bullet=False, angle_override=angle_deg, bullet_type="boss"))
+            bullets.append(Bullet(self.x, self.y, player_bullet=False, angle_override=angle_deg, bullet_type="boss", game=self.game))
         return bullets
 
     def draw(self, screen):
-        """弾幕敵の描画（菱形）"""
-        points = [(self.x, self.y - self.size//2), (self.x + self.size//2, self.y),
-                  (self.x, self.y + self.size//2), (self.x - self.size//2, self.y)]
-        pygame.draw.polygon(screen, self.color, points)
-        if hasattr(self, 'outline_color'):
-            pygame.draw.polygon(screen, self.outline_color, points, 2)
-        
+        """barrage.png画像で描画"""
+        if self.image:
+            img = pygame.transform.scale(self.image, (int(self.size), int(self.size)))
+            rect = img.get_rect(center=(self.x, self.y))
+            screen.blit(img, rect)
+        else:
+            # 画像がロードできなかった場合は菱形で描画
+            points = [(self.x, self.y - self.size//2), (self.x + self.size//2, self.y),
+                      (self.x, self.y + self.size//2), (self.x - self.size//2, self.y)]
+            pygame.draw.polygon(screen, self.color, points)
+            if hasattr(self, 'outline_color'):
+                pygame.draw.polygon(screen, self.outline_color, points, 2)
         if self.state == "holding" and self.barrage_timer < 60:
             charge_ratio = (60 - self.barrage_timer) / 60.0
             radius = int((self.size//2) * charge_ratio)
@@ -79,6 +104,5 @@ class BarrageEnemy(Enemy):
             surface = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
             pygame.draw.circle(surface, (*WHITE[:3], alpha), (radius, radius), radius)
             screen.blit(surface, (self.x - radius, self.y - radius))
-            
         if hasattr(self, 'draw_health_bar'):
             self.draw_health_bar(screen)

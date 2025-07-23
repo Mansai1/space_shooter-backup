@@ -4,7 +4,7 @@ from settings import *
 
 class FastEnemy(Enemy):
     """高速敵"""
-    def __init__(self, x, y, player, level_multipliers=None):
+    def __init__(self, x, y, player, level_multipliers=None, game=None):
         health = 1
         speed = ENEMY_SPEED * 2.5
         
@@ -12,7 +12,7 @@ class FastEnemy(Enemy):
             health = max(1, int(health * level_multipliers.get('health', 1.0)))
             speed = speed * level_multipliers.get('speed', 1.0)
             
-        super().__init__(x, y, player, health, speed, (255, 165, 0), ENEMY_SIZE - 5)
+        super().__init__(x, y, player, health, speed, (255, 165, 0), ENEMY_SIZE - 5, game=game)
         self.enemy_type = "fast"
         self.score_value = ENEMY_SCORE * 2
         

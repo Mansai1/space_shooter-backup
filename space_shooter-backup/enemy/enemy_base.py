@@ -6,7 +6,7 @@ from bullet import Bullet
 
 class Enemy(pygame.sprite.Sprite):
     """敵の基底クラス"""
-    def __init__(self, x, y, player, health=1, speed=ENEMY_SPEED, color=RED, size=ENEMY_SIZE):
+    def __init__(self, x, y, player, health=1, speed=ENEMY_SPEED, color=RED, size=ENEMY_SIZE, game=None):
         super().__init__()
         self.x = x
         self.y = y
@@ -22,6 +22,7 @@ class Enemy(pygame.sprite.Sprite):
         self.enemy_type = "basic"
         self.score_value = ENEMY_SCORE
         self.outline_color = WHITE
+        self.game = game  # 追加: Gameインスタンス参照
         
         # 射撃関連
         self.shoot_cooldown = 0
@@ -37,8 +38,13 @@ class Enemy(pygame.sprite.Sprite):
         self.move()
         self.update_rect()
         
+        # 射撃タイマーの更新
+        self.update_shooting()
+        
         # 画面外で非アクティブ化
-        if self.y > SCREEN_HEIGHT + self.size or self.y < -self.size:
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        if self.y > height + self.size or self.y < -self.size:
             self.active = False
         
         # 射撃処理
@@ -110,20 +116,19 @@ class Enemy(pygame.sprite.Sprite):
     def shoot(self):
         """弾を発射"""
         # 下向きに発射（direction_y=1）
-        return Bullet(self.x, self.y + self.size//2, direction_y=1, angle=0, player_bullet=False)
+        return Bullet(self.x, self.y + self.size//2, direction_y=1, angle=0, player_bullet=False, game=self.game)
 
 class TargetedBullet(Bullet):
     """狙い撃ち弾"""
-    def __init__(self, x, y, vx, vy, color):
-        super().__init__(x, y, direction_y=1, angle=0, player_bullet=False)
+    def __init__(self, x, y, vx, vy, color, game=None):
+        super().__init__(x, y, direction_y=1, angle=0, player_bullet=False, game=game)
         self.vx = vx
         self.vy = vy
+        self.game = game  # 追加: Gameインスタンス参照
         
+        # 速度ベクトルを設定
+        self.vel_x = vx
+        self.vel_y = vy
     def update(self):
-        self.x += self.vx
-        self.y += self.vy
-        self.rect.center = (self.x, self.y)
-        
-        if (self.x < 0 or self.x > SCREEN_WIDTH or 
-            self.y < 0 or self.y > SCREEN_HEIGHT):
-            self.active = False
+        # 基底クラスのupdateメソッドを使用（画面外チェックも含む）
+        super().update()

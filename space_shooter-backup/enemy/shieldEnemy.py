@@ -5,7 +5,7 @@ from settings import *
 
 class ShieldEnemy(Enemy):
     """シールド敵 - 一定ダメージまで無敵"""
-    def __init__(self, x, y, player, level_multipliers=None):
+    def __init__(self, x, y, player, level_multipliers=None, game=None):
         health = 1
         speed = ENEMY_SPEED * 0.9
         
@@ -13,7 +13,7 @@ class ShieldEnemy(Enemy):
             health = max(1, int(health * level_multipliers.get('health', 1.0)))
             speed = speed * level_multipliers.get('speed', 1.0)
             
-        super().__init__(x, y, player, health, speed, (0, 191, 255), ENEMY_SIZE)
+        super().__init__(x, y, player, health, speed, (0, 191, 255), ENEMY_SIZE, game=game)
         self.enemy_type = "shield"
         self.score_value = ENEMY_SCORE * 3
         self.shield_health = 5
@@ -65,3 +65,6 @@ class ShieldEnemy(Enemy):
         # 通常の体力バー
         if not self.shield_active:
             self.draw_health_bar(screen)
+
+    def move(self):
+        self.y += self.speed

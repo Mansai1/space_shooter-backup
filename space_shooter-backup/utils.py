@@ -25,13 +25,44 @@ def init_small_font():
         # フォントの初期化に失敗した場合はエラーを発生させる
         raise
 
-def draw_text(screen, text, x, y, font, color=WHITE):
-    """テキストを描画"""
+def draw_text_absolute(screen, text, x, y, font, color=WHITE, anchor="center"):
+    """絶対座標でテキストを描画"""
     text_surface = font.render(text, True, color)
     text_rect = text_surface.get_rect()
-    text_rect.centerx = x
-    text_rect.centery = y
+    
+    if anchor == "topleft":
+        text_rect.topleft = (x, y)
+    elif anchor == "topright":
+        text_rect.topright = (x, y)
+    elif anchor == "midtop":
+        text_rect.midtop = (x, y)
+    elif anchor == "midleft":
+        text_rect.midleft = (x, y)
+    elif anchor == "center":
+        text_rect.center = (x, y)
+    elif anchor == "midright":
+        text_rect.midright = (x, y)
+    elif anchor == "bottomleft":
+        text_rect.bottomleft = (x, y)
+    elif anchor == "bottomright":
+        text_rect.bottomright = (x, y)
+    elif anchor == "midbottom":
+        text_rect.midbottom = (x, y)
+    else: # デフォルトは中央
+        text_rect.center = (x, y)
+        
     screen.blit(text_surface, text_rect)
+
+def draw_text_relative(screen, text, x_percent, y_percent, font, color=WHITE, anchor="center"):
+    """画面サイズに対する相対座標でテキストを描画"""
+    screen_width, screen_height = screen.get_size()
+    x_abs = int(screen_width * x_percent)
+    y_abs = int(screen_height * y_percent)
+    draw_text_absolute(screen, text, x_abs, y_abs, font, color, anchor)
+
+def draw_text(screen, text, x, y, font, color=WHITE):
+    """既存のdraw_textの呼び出しをdraw_text_absoluteにリダイレクト"""
+    draw_text_absolute(screen, text, x, y, font, color, "center")
 
 def draw_text_multiline(screen, text, font, color, rect, start_x, start_y):
     """指定された矩形内にテキストを折り返して描画"""
@@ -52,31 +83,27 @@ def draw_text_multiline(screen, text, font, color, rect, start_x, start_y):
         y += font.get_linesize()
 
 
-def draw_score(screen, score, font, x, y):
+def draw_score(screen, score, font):
     """スコアを描画"""
-    draw_text(screen, f"スコア: {score}", x, y, font, WHITE)
+    draw_text_relative(screen, f"スコア: {score}", 0.05, 0.05, font, WHITE, anchor="topleft")
 
-def draw_lives(screen, lives, font, x, y):
+def draw_lives(screen, lives, font):
     """ライフを描画"""
-    draw_text(screen, f"HP: {lives}", x, y, font, WHITE)
+    draw_text_relative(screen, f"HP: {lives}", 0.05, 0.1, font, WHITE, anchor="topleft")
 
-def draw_powerups(screen, player, small_font, x, y_start):
+def draw_powerups(screen, player, small_font):
     """プレイヤーのパワーアップ状態を表示"""
-    y_offset = y_start
-    draw_text(screen, "パワーアップ:", x, y_offset, small_font, YELLOW)
-    y_offset += 25
+    draw_text_relative(screen, "パワーアップ:", 0.05, 0.15, small_font, YELLOW, anchor="topleft")
     
     # ライフアップアイテムの表示
     if "life_up" in player.powerups:
-        draw_text(screen, "残機アップ", x, y_offset, small_font, GREEN)
-        y_offset += 20
+        draw_text_relative(screen, "残機アップ", 0.05, 0.18, small_font, GREEN, anchor="topleft")
     
     # パワーアップがない場合の表示
     if not player.powerups:
-        draw_text(screen, "なし", x, y_offset, small_font, GRAY)
-        y_offset += 20
+        draw_text_relative(screen, "なし", 0.05, 0.18, small_font, GRAY, anchor="topleft")
 
-def draw_enemy_info(screen, enemies, small_font, x, y_start):
+def draw_enemy_info(screen, enemies, small_font):
     """画面上の敵の種類と数を表示"""
     if not enemies:
         return
@@ -86,9 +113,9 @@ def draw_enemy_info(screen, enemies, small_font, x, y_start):
         enemy_type = type(enemy).__name__
         enemy_counts[enemy_type] = enemy_counts.get(enemy_type, 0) + 1
     
-    y_offset = y_start
-    draw_text(screen, "敵情報:", x, y_offset, small_font, YELLOW)
-    y_offset += 25
+    y_offset_percent = 0.05
+    draw_text_relative(screen, "敵情報:", 0.95, y_offset_percent, small_font, YELLOW, anchor="topright")
+    y_offset_percent += 0.04
     
     enemy_colors = {
         'BasicEnemy': RED,
@@ -116,17 +143,17 @@ def draw_enemy_info(screen, enemies, small_font, x, y_start):
         display_name = type_names.get(enemy_type, enemy_type)
         color = enemy_colors.get(enemy_type, WHITE)
         
-        draw_text(screen, f"{display_name}: {count}", x, y_offset, small_font, color)
-        y_offset += 20
+        draw_text_relative(screen, f"{display_name}: {count}", 0.95, y_offset_percent, small_font, color, anchor="topright")
+        y_offset_percent += 0.03
 
-def draw_sound_status(screen, sound_manager, small_font, x, y):
+def draw_sound_status(screen, sound_manager, small_font):
     """サウンド状態を表示"""
     if sound_manager:
         status = "BGM: ON" if sound_manager.music_playing else "BGM: OFF"
         color = GREEN if sound_manager.music_playing else RED
-        draw_text(screen, status, x, y, small_font, color)
+        draw_text_relative(screen, status, 0.95, 0.95, small_font, color, anchor="bottomright")
 
-def draw_weapon_status(screen, player, small_font, x, y):
+def draw_weapon_status(screen, player, small_font):
     """現在の武器状態を表示"""
     current_weapon = player.current_weapon.replace('_', ' ').title()
     weapon_color = WHITE
@@ -136,7 +163,7 @@ def draw_weapon_status(screen, player, small_font, x, y):
     elif current_weapon == "Wide Shot":
         weapon_color = GREEN
     
-    draw_text(screen, f"武器: {current_weapon}", x, y, small_font, weapon_color)
+    draw_text_relative(screen, f"武器: {current_weapon}", 0.95, 0.9, small_font, weapon_color, anchor="bottomright")
 
 def check_collision(rect1, rect2):
     """矩形の当たり判定"""
@@ -269,49 +296,50 @@ def draw_particles(screen, particles):
 
 def draw_title_screen(screen, font, small_font):
     """タイトル画面を描画"""
-    draw_text(screen, "SPACE SHOOTER", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100, font, WHITE)
-    draw_text(screen, "Enemy Variety Edition", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 60, small_font, YELLOW)
-    draw_text(screen, "スペースキーで開始", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, small_font, WHITE)
-    draw_text(screen, "移動: WASD または 矢印キー", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40, small_font, GRAY)
-    draw_text(screen, "ショット: スペース", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 60, small_font, GRAY)
-    draw_text(screen, "BGM切り替え: M", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 80, small_font, GRAY)
-    draw_text(screen, "ポーズ: P", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, small_font, GRAY)
+    width, height = screen.get_size()
+    draw_text(screen, "SPACE SHOOTER", width // 2, height // 2 - 100, font, WHITE)
+    draw_text(screen, "Enemy Variety Edition", width // 2, height // 2 - 60, small_font, YELLOW)
+    draw_text(screen, "スペースキーで開始", width // 2, height // 2, small_font, WHITE)
+    draw_text(screen, "移動: WASD または 矢印キー", width // 2, height // 2 + 40, small_font, GRAY)
+    draw_text(screen, "ショット: スペース", width // 2, height // 2 + 60, small_font, GRAY)
+    draw_text(screen, "BGM切り替え: M", width // 2, height // 2 + 80, small_font, GRAY)
+    draw_text(screen, "ポーズ: P", width // 2, height // 2 + 100, small_font, GRAY)
     
     # レーザーと爆弾の説明を追加
-    draw_text(screen, "特殊武器: レーザー (貫通) & ボム (範囲攻撃)", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 140, small_font, CYAN)
+    draw_text(screen, "特殊武器: レーザー (貫通) & ボム (範囲攻撃)", width // 2, height // 2 + 140, small_font, CYAN)
 
 def draw_game_over_screen(screen, score, font):
     """ゲームオーバー画面を描画"""
     # 半透明の黒いオーバーレイ
-    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    overlay = pygame.Surface(screen.get_size())
     overlay.set_alpha(128)
     overlay.fill(BLACK)
     screen.blit(overlay, (0, 0))
     
-    draw_text(screen, "GAME OVER", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50, font, RED)
-    draw_text(screen, f"Final Score: {score}", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, font, WHITE)
-    draw_text(screen, "Press R to Retry", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, font, WHITE)
-    draw_text(screen, "Press Q to Quit", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 80, font, WHITE)
+    draw_text_relative(screen, "GAME OVER", 0.5, 0.4, font, RED)
+    draw_text_relative(screen, f"Final Score: {score}", 0.5, 0.5, font, WHITE)
+    draw_text_relative(screen, "Press R to Retry", 0.5, 0.6, font, WHITE)
+    draw_text_relative(screen, "Press Q to Quit", 0.5, 0.65, font, WHITE)
 
 def draw_pause_screen(screen, font):
     """ポーズ画面を描画"""
     # 半透明の黒いオーバーレイ
-    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    overlay = pygame.Surface(screen.get_size())
     overlay.set_alpha(128)
     overlay.fill(BLACK)
     screen.blit(overlay, (0, 0))
     
-    draw_text(screen, "PAUSED", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50, font, WHITE)
-    draw_text(screen, "Press P to Resume", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20, font, WHITE)
+    draw_text_relative(screen, "PAUSED", 0.5, 0.45, font, WHITE)
+    draw_text_relative(screen, "Press P to Resume", 0.5, 0.55, font, WHITE)
 
-def draw_sound_status(screen, sound_manager, small_font, x, y):
+def draw_sound_status(screen, sound_manager, small_font):
     """サウンド状態を表示"""
     if sound_manager:
         status = "BGM: ON" if sound_manager.music_playing else "BGM: OFF"
         color = GREEN if sound_manager.music_playing else RED
-        draw_text(screen, status, x, y, small_font, color)
+        draw_text_relative(screen, status, 0.95, 0.95, small_font, color, anchor="bottomright")
 
-def draw_weapon_status(screen, player, small_font, x, y):
+def draw_weapon_status(screen, player, small_font):
     """現在の武器状態を表示"""
     current_weapon = player.current_weapon.replace('_', ' ').title()
     weapon_color = WHITE
@@ -321,7 +349,7 @@ def draw_weapon_status(screen, player, small_font, x, y):
     elif current_weapon == "Wide Shot":
         weapon_color = GREEN
     
-    draw_text(screen, f"武器: {current_weapon}", x, y, small_font, weapon_color)
+    draw_text_relative(screen, f"武器: {current_weapon}", 0.95, 0.9, small_font, weapon_color, anchor="bottomright")
 
 
 def draw_special_gauge(screen, player, x, y, width, height):

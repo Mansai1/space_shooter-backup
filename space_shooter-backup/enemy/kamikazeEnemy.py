@@ -5,7 +5,18 @@ from settings import *
 
 class KamikazeEnemy(Enemy):
     """カミカゼ敵 - プレイヤーに向かって突進"""
-    def __init__(self, x, y, player, level_multipliers=None):
+    # 画像をクラス変数として一度だけロード
+    image = None
+    @classmethod
+    def load_image(cls):
+        if cls.image is None:
+            import os
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            img_path = os.path.join(base_dir, 'assets', 'img', 'kamikaze.png')
+            cls.image = pygame.image.load(img_path).convert_alpha()
+
+    def __init__(self, x, y, player, level_multipliers=None, game=None):
+        self.load_image()
         health = 1
         speed = ENEMY_SPEED * 4
         
@@ -13,7 +24,7 @@ class KamikazeEnemy(Enemy):
             health = max(1, int(health * level_multipliers.get('health', 1.0)))
             speed = speed * level_multipliers.get('speed', 1.0)
             
-        super().__init__(x, y, player, health, speed, (255, 0, 255), ENEMY_SIZE)
+        super().__init__(x, y, player, health, speed, (255, 0, 255), int(ENEMY_SIZE * 2.0), game=game)
         self.enemy_type = "kamikaze"
         self.score_value = ENEMY_SCORE * 3
         
@@ -43,20 +54,18 @@ class KamikazeEnemy(Enemy):
         return False
     
     def draw(self, screen):
-        """カミカゼ敵は三角形で描画"""
-        # 三角形の頂点を計算
-        points = [
-            (self.x, self.y - self.size//2),
-            (self.x - self.size//2, self.y + self.size//2),
-            (self.x + self.size//2, self.y + self.size//2)
-        ]
-        
-        pygame.draw.polygon(screen, self.color, points)
-        pygame.draw.polygon(screen, self.outline_color, points, 2)
-        
-        # 敵の目を描画
-        eye_size = 2
-        pygame.draw.circle(screen, WHITE, 
-                         (int(self.x - self.size//6), int(self.y - self.size//6)), eye_size)
-        pygame.draw.circle(screen, WHITE, 
-                         (int(self.x + self.size//6), int(self.y - self.size//6)), eye_size)
+        """kamikaze.png画像で描画"""
+        if self.image:
+            img = pygame.transform.scale(self.image, (self.size, self.size))
+            rect = img.get_rect(center=(self.x, self.y))
+            screen.blit(img, rect)
+        else:
+            # 画像がロードできなかった場合は三角形で描画
+            points = [
+                (self.x, self.y - self.size//2),
+                (self.x - self.size//2, self.y + self.size//2),
+                (self.x + self.size//2, self.y + self.size//2)
+            ]
+            pygame.draw.polygon(screen, self.color, points)
+            pygame.draw.polygon(screen, self.outline_color, points, 2)
+        # 敵の目は画像に含まれるため省略

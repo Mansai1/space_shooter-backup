@@ -23,7 +23,27 @@ from damage_number import DamageNumber # 追加
 class Game:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # デスクトップの解像度を取得
+        info = pygame.display.Info()
+        desktop_width = info.current_w
+        desktop_height = info.current_h
+
+        # 元のアスペクト比を維持しつつ、デスクトップサイズに収まるように調整
+        aspect_ratio = SCREEN_WIDTH / SCREEN_HEIGHT
+        
+        # 幅を基準に高さを計算
+        new_width = desktop_width
+        new_height = int(new_width / aspect_ratio)
+
+        # 計算された高さがデスクトップの高さを超える場合、高さを基準に幅を再計算
+        if new_height > desktop_height:
+            new_height = desktop_height
+            new_width = int(new_height * aspect_ratio)
+        
+        self.fullscreen = False  # 追加: 全画面状態フラグ
+        self.desktop_width = desktop_width
+        self.desktop_height = desktop_height
+        self.set_screen(new_width, new_height, fullscreen=False)
         pygame.display.set_caption("Space Shooter - Enemy Variety Edition")
         self.clock = pygame.time.Clock()
         self.font = init_font()
@@ -33,7 +53,7 @@ class Game:
         
         # スクリプトのディレクトリパスを取得
         self.base_dir = os.path.dirname(__file__)
-        self.boss_manager = BossManager(self.base_dir)  # ボス管理を追加し、base_dirを渡す
+        self.boss_manager = BossManager(self.base_dir, game=self)  # ボス管理を追加し、base_dirを渡す
 
         # 背景画像の読み込みと設定
         background_path = os.path.join(self.base_dir, "assets", "img", "game_back.png")
@@ -55,9 +75,30 @@ class Game:
         self.is_paused = False
 
         # タイトル画面のボタン
-        self.start_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 50)
-        self.upgrade_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20, 200, 50)
-        self.quit_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 90, 200, 50)
+        # 元の論理的な座標でRectを定義
+        original_start_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 50)
+        original_upgrade_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20, 200, 50)
+        original_quit_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 90, 200, 50)
+
+        # スケーリングされたRectを計算
+        self.start_button = pygame.Rect(
+            int(original_start_button_rect.x * self.screen_scale_x),
+            int(original_start_button_rect.y * self.screen_scale_y),
+            int(original_start_button_rect.width * self.screen_scale_x),
+            int(original_start_button_rect.height * self.screen_scale_y)
+        )
+        self.upgrade_button = pygame.Rect(
+            int(original_upgrade_button_rect.x * self.screen_scale_x),
+            int(original_upgrade_button_rect.y * self.screen_scale_y),
+            int(original_upgrade_button_rect.width * self.screen_scale_x),
+            int(original_upgrade_button_rect.height * self.screen_scale_y)
+        )
+        self.quit_button = pygame.Rect(
+            int(original_quit_button_rect.x * self.screen_scale_x),
+            int(original_quit_button_rect.y * self.screen_scale_y),
+            int(original_quit_button_rect.width * self.screen_scale_x),
+            int(original_quit_button_rect.height * self.screen_scale_y)
+        )
         
         # レベルアップ選択画面の初期化
         self.level_up_upgrade_screen = LevelUpUpgradeScreen(self.screen, self.font, self.small_font)
@@ -78,8 +119,17 @@ class Game:
         
     def reset_game(self):
         """ゲームの初期化"""
+        # 既存リストをクリア
+        if hasattr(self, 'enemies'): self.enemies.clear()
+        if hasattr(self, 'bullets'): self.bullets.clear()
+        if hasattr(self, 'enemy_bullets'): self.enemy_bullets.clear()
+        if hasattr(self, 'boss_bullets'): self.boss_bullets.clear()
+        if hasattr(self, 'special_attacks'): self.special_attacks.clear()
+        if hasattr(self, 'powerups'): self.powerups.clear()
+        if hasattr(self, 'particles'): self.particles.clear()
+        if hasattr(self, 'damage_numbers'): self.damage_numbers.clear()
         # アップグレードデータをプレイヤーに渡す
-        self.player = Player(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100, self.upgrade_data)
+        self.player = Player(self.current_width // 2, self.current_height - 100, self.upgrade_data, game=self)
         self.bullets = []
         self.enemies = []
         self.enemy_bullets = []
@@ -90,15 +140,13 @@ class Game:
         self.damage_numbers = [] # ダメージ数値管理リストを追加
         self.score = 0
         self.lives = 3 # ライフ制に変更
-
         self.enemy_spawn_timer = 0
         self.powerup_spawn_timer = 0
         self.wave_spawn_timer = 0
         self.wave_spawn_interval = 300  # 5秒間隔で編隊出現
-
         self.level_system = LevelSystem()
         self.difficulty_manager = DifficultyManager()
-        self.boss_manager = BossManager(self.base_dir)
+        self.boss_manager = BossManager(self.base_dir, game=self)
         self.game_state = "PLAYING"
         
     def get_current_level_config(self):
@@ -110,6 +158,27 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+
+            if event.type == pygame.KEYDOWN:
+                # F11で全画面/ウィンドウ切り替え
+                if event.key == pygame.K_F11:
+                    self.fullscreen = not self.fullscreen
+                    if self.fullscreen:
+                        # デスクトップ解像度で全画面（アスペクト比維持せず黒帯なし）
+                        new_width = self.desktop_width
+                        new_height = self.desktop_height
+                        self.set_screen(new_width, new_height, fullscreen=True)
+                    else:
+                        # ウィンドウモード（アスペクト比維持）
+                        aspect_ratio = SCREEN_WIDTH / SCREEN_HEIGHT
+                        new_width = self.desktop_width
+                        new_height = int(new_width / aspect_ratio)
+                        if new_height > self.desktop_height:
+                            new_height = self.desktop_height
+                            new_width = int(new_height * aspect_ratio)
+                        self.set_screen(new_width, new_height, fullscreen=False)
+                    # UI再描画用にアップグレード画面のscreenも更新
+                    self.level_up_upgrade_screen.screen = self.screen
 
             if self.game_state == "TITLE":
                 if event.type == pygame.MOUSEBUTTONDOWN:
@@ -193,6 +262,14 @@ class Game:
         # 現在のレベル設定を取得
         current_level_config = self.get_current_level_config()
         
+        # デバッグ: レベル4以降で弾幕敵の利用可能性をチェック
+        if self.level_system.current_level >= 4:
+            available_enemies = current_level_config.get('enemy_types', [])
+            if 'barrage' in available_enemies:
+                print(f"Level {self.level_system.current_level}: Barrage enemy is available in {available_enemies}")
+            else:
+                print(f"Level {self.level_system.current_level}: Barrage enemy NOT available in {available_enemies}")
+        
         # レベルアップ通知
         if self.level_up_notification_timer > 0:
             draw_level_up_notification(self.screen, self.font, self.level_up_notification_timer)
@@ -230,6 +307,9 @@ class Game:
             if not bullet.active:
                 self.enemy_bullets.remove(bullet)
         
+        # デバッグ: 敵の弾の数を表示（必要に応じて）
+        # print(f"Enemy bullets: {len(self.enemy_bullets)}")
+        
         # ボス弾の更新
         for bullet in self.boss_bullets[:]:
             bullet.update()
@@ -255,11 +335,15 @@ class Game:
             self.enemy_spawn_timer += 1
             if self.enemy_spawn_timer >= spawn_rate:
                 self.enemy_spawn_timer = 0
-                enemy_x = random.randint(ENEMY_SIZE, SCREEN_WIDTH - ENEMY_SIZE)
+                enemy_x = random.randint(ENEMY_SIZE, self.current_width - ENEMY_SIZE)
                 
                 # レベル設定を敵生成に渡す
-                enemy = EnemyFactory.create_random_enemy(enemy_x, -ENEMY_SIZE, self.player, current_level_config)
+                enemy = EnemyFactory.create_random_enemy(enemy_x, -ENEMY_SIZE, self.player, current_level_config, game=self)
                 self.enemies.append(enemy)
+                
+                # デバッグ: 弾幕敵が生成されたかチェック
+                if hasattr(enemy, 'enemy_type') and enemy.enemy_type == "barrage":
+                    print(f"Barrage enemy spawned at level {self.level_system.current_level}")
             
             # 敵の編隊生成（レベル設定を適用）
             self.wave_spawn_timer += 1
@@ -271,20 +355,30 @@ class Game:
         self.powerup_spawn_timer += 1
         if self.powerup_spawn_timer >= POWERUP_SPAWN_RATE:
             self.powerup_spawn_timer = 0
-            powerup_x = random.randint(POWERUP_SIZE, SCREEN_WIDTH - POWERUP_SIZE)
+            powerup_x = random.randint(POWERUP_SIZE, self.current_width - POWERUP_SIZE)
             powerup_type = random.choice(POWERUP_TYPES)
-            powerup = PowerUp(powerup_x, -POWERUP_SIZE, powerup_type)
+            powerup = PowerUp(powerup_x, -POWERUP_SIZE, powerup_type, game=self)
             self.powerups.append(powerup)
         
         # 敵の更新
         for enemy in self.enemies[:]:
             new_bullets = enemy.update()  # 戻り値を修正
             if new_bullets:  # 弾が生成された場合
-                self.enemy_bullets.extend(new_bullets)  # 弾幕を追加
+                # 単一のBulletオブジェクトかリストかをチェック
+                if isinstance(new_bullets, list):
+                    self.enemy_bullets.extend(new_bullets)  # リストの場合
+                else:
+                    self.enemy_bullets.append(new_bullets)  # 単一オブジェクトの場合
+                # デバッグ: 敵が弾を撃ったかチェック
+                if hasattr(enemy, 'enemy_type'):
+                    print(f"{enemy.enemy_type} enemy fired bullets")
             
             # 敵が画面外に出たら削除
             if not enemy.active:
                 self.enemies.remove(enemy)
+                # デバッグ: 弾幕敵が削除されたかチェック
+                if hasattr(enemy, 'enemy_type') and enemy.enemy_type == "barrage":
+                    print(f"Barrage enemy removed at y={enemy.y}")
             elif enemy.should_shoot() and random.random() < 0.3:  # 既存の処理も残す
                 # スナイパー敵の場合は狙い撃ち
                 if isinstance(enemy, SniperEnemy):
@@ -292,6 +386,9 @@ class Game:
                 else:
                     enemy_bullet = enemy.shoot()
                 self.enemy_bullets.append(enemy_bullet)
+                # デバッグ: 既存の射撃処理で弾が生成されたかチェック
+                if hasattr(enemy, 'enemy_type'):
+                    print(f"{enemy.enemy_type} enemy fired bullet (legacy method)")
         
         # 当たり判定
         self.check_collisions()
@@ -322,12 +419,17 @@ class Game:
         
         wave_type = random.choice(wave_types)
         
-        start_x = random.randint(100, SCREEN_WIDTH - 100)
+        start_x = random.randint(100, self.current_width - 100)
         start_y = -50
         
         # レベル設定を編隊生成に渡す
-        wave_enemies = EnemyFactory.create_enemy_wave(wave_type, start_x, start_y, self.player, level_config)
+        wave_enemies = EnemyFactory.create_enemy_wave(wave_type, start_x, start_y, self.player, level_config, game=self)
         self.enemies.extend(wave_enemies)
+        
+        # デバッグ: 編隊内の弾幕敵をチェック
+        for enemy in wave_enemies:
+            if hasattr(enemy, 'enemy_type') and enemy.enemy_type == "barrage":
+                print(f"Barrage enemy spawned in wave '{wave_type}' at level {self.level_system.current_level}")
     
     def check_collisions(self):
         """当たり判定の処理"""
@@ -499,7 +601,7 @@ class Game:
         
         # 敵の弾とプレイヤーの当たり判定
         for bullet in self.enemy_bullets[:]:
-            if check_collision(bullet.rect, self.player.rect):
+            if bullet.active and check_collision(bullet.rect, self.player.rect):
                 self.enemy_bullets.remove(bullet)
                 if self.player.take_damage():  # シールドで防げなかった場合
                     self.lives -= 1
@@ -517,7 +619,7 @@ class Game:
         
         # ボス弾とプレイヤーの当たり判定
         for bullet in self.boss_bullets[:]:
-            if check_collision(bullet.rect, self.player.rect):
+            if bullet.active and check_collision(bullet.rect, self.player.rect):
                 self.boss_bullets.remove(bullet)
                 if self.player.take_damage():  # シールドで防げなかった場合
                     self.lives -= 1
@@ -618,19 +720,21 @@ class Game:
     def draw(self):
         """描画処理"""
         # 背景画像のスクロール描画
+        bg_scaled = pygame.transform.scale(self.background_image, (self.current_width, self.current_height))
         y1 = self.scroll_y
-        y2 = self.scroll_y - self.bg_height
-        self.screen.blit(self.background_image, (0, y1))
-        self.screen.blit(self.background_image, (0, y2))
+        y2 = self.scroll_y - self.current_height
+        self.screen.blit(bg_scaled, (0, y1))
+        self.screen.blit(bg_scaled, (0, y2))
 
         if self.game_state == "TITLE":
-            draw_text(self.screen, "Space Shooter", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 4, self.font, WHITE)
+            draw_text_relative(self.screen, "Space Shooter", 0.5, 0.25, self.font, WHITE)
+            # ボタンは既存のRectを使用するため、絶対座標で描画
             pygame.draw.rect(self.screen, DARK_GRAY, self.start_button)
-            draw_text(self.screen, "Start", self.start_button.centerx, self.start_button.centery, self.font, WHITE)
+            draw_text_absolute(self.screen, "Start", self.start_button.centerx, self.start_button.centery, self.font, WHITE)
             pygame.draw.rect(self.screen, DARK_GRAY, self.upgrade_button)
-            draw_text(self.screen, "Upgrade", self.upgrade_button.centerx, self.upgrade_button.centery, self.font, WHITE)
+            draw_text_absolute(self.screen, "Upgrade", self.upgrade_button.centerx, self.upgrade_button.centery, self.font, WHITE)
             pygame.draw.rect(self.screen, DARK_GRAY, self.quit_button)
-            draw_text(self.screen, "Quit", self.quit_button.centerx, self.quit_button.centery, self.font, WHITE)
+            draw_text_absolute(self.screen, "Quit", self.quit_button.centerx, self.quit_button.centery, self.font, WHITE)
 
         elif self.game_state == "PLAYING" or self.is_paused:
             # --- ゲーム要素の描画 ---
@@ -640,11 +744,13 @@ class Game:
                 bullet.draw(self.screen)
 
             for bullet in self.enemy_bullets:
-                bullet.draw(self.screen)
+                if bullet.active:
+                    bullet.draw(self.screen)
 
             # ボス弾の描画
             for bullet in self.boss_bullets:
-                bullet.draw(self.screen)
+                if bullet.active:
+                    bullet.draw(self.screen)
 
             for enemy in self.enemies:
                 enemy.draw(self.screen)
@@ -681,22 +787,20 @@ class Game:
                 dn.draw(self.screen)
 
             # --- UI の描画 ---
-            draw_score(self.screen, self.score, self.font, x=50, y=30)
-            draw_lives(self.screen, self.lives, self.font, x=50, y=60)
-            draw_powerups(self.screen, self.player, self.small_font, x=50, y_start=90)
-            draw_enemy_info(self.screen, self.enemies, self.small_font, x=SCREEN_WIDTH - 50, y_start=30)
-
-            # レベルシステムUI の追加
-            draw_level_info(self.screen, self.level_system, self.font, self.small_font, x=50, y_start=SCREEN_HEIGHT - 150)
-            draw_stats_panel(self.screen, self.level_system, self.font, self.small_font, x=50, y_start=SCREEN_HEIGHT - 100)
-            draw_difficulty_info(self.screen, self.level_system, self.small_font, x=50, y_start=SCREEN_HEIGHT - 50)
+            draw_score(self.screen, self.score, self.font)
+            draw_lives(self.screen, self.lives, self.font)
+            draw_powerups(self.screen, self.player, self.small_font)
+            # draw_enemy_info(self.screen, self.enemies, self.small_font)
+            draw_level_info(self.screen, self.level_system, self.font, self.small_font)
+            # draw_stats_panel(self.screen, self.level_system, self.font, self.small_font)
+            # draw_difficulty_info(self.screen, self.level_system, self.small_font)
 
             # 必殺技ゲージの描画
             draw_special_gauge(self.screen, self.player, self.font)
 
             # サウンド状態表示と武器情報
-            draw_sound_status(self.screen, self.sound_manager, self.small_font, x=SCREEN_WIDTH - 50, y=SCREEN_HEIGHT - 30)
-            draw_weapon_status(self.screen, self.player, self.small_font, x=SCREEN_WIDTH - 50, y=SCREEN_HEIGHT - 60)
+            draw_sound_status(self.screen, self.sound_manager, self.small_font)
+            draw_weapon_status(self.screen, self.player, self.small_font)
 
             if self.is_paused:
                 draw_pause_screen(self.screen, self.font)
@@ -720,16 +824,16 @@ class Game:
                 dn.draw(self.screen)
 
             # --- UIも背景として描画 ---
-            draw_score(self.screen, self.score, self.font, x=50, y=30)
-            draw_lives(self.screen, self.lives, self.font, x=50, y=60)
-            draw_powerups(self.screen, self.player, self.small_font, x=50, y_start=90)
-            draw_enemy_info(self.screen, self.enemies, self.small_font, x=SCREEN_WIDTH - 50, y_start=30)
-            draw_level_info(self.screen, self.level_system, self.font, self.small_font, x=50, y_start=SCREEN_HEIGHT - 150)
-            draw_stats_panel(self.screen, self.level_system, self.font, self.small_font, x=50, y_start=SCREEN_HEIGHT - 100)
-            draw_difficulty_info(self.screen, self.level_system, self.small_font, x=50, y_start=SCREEN_HEIGHT - 50)
+            draw_score(self.screen, self.score, self.font)
+            draw_lives(self.screen, self.lives, self.font)
+            draw_powerups(self.screen, self.player, self.small_font)
+            # draw_enemy_info(self.screen, self.enemies, self.small_font)
+            draw_level_info(self.screen, self.level_system, self.font, self.small_font)
+            # draw_stats_panel(self.screen, self.level_system, self.font, self.small_font)
+            # draw_difficulty_info(self.screen, self.level_system, self.small_font)
             draw_special_gauge(self.screen, self.player, self.font)
-            draw_sound_status(self.screen, self.sound_manager, self.small_font, x=SCREEN_WIDTH - 50, y=SCREEN_HEIGHT - 30)
-            draw_weapon_status(self.screen, self.player, self.small_font, x=SCREEN_WIDTH - 50, y=SCREEN_HEIGHT - 60)
+            draw_sound_status(self.screen, self.sound_manager, self.small_font)
+            draw_weapon_status(self.screen, self.player, self.small_font)
 
             # --- アップグレード選択画面を最前面に描画 ---
             self.level_up_upgrade_screen.draw()
@@ -767,6 +871,45 @@ class Game:
             self.sound_manager.stop_music()
         pygame.quit()
         sys.exit()
+
+    def set_screen(self, width, height, fullscreen):
+        """画面サイズ・スケール・ボタンを再計算"""
+        flags = pygame.FULLSCREEN if fullscreen else 0
+        self.screen = pygame.display.set_mode((width, height), flags)
+        self.screen_scale_x = width / SCREEN_WIDTH
+        self.screen_scale_y = height / SCREEN_HEIGHT
+        self.current_width = width
+        self.current_height = height
+        if hasattr(self, 'player') and self.player:
+            self.player.game = self  # 画面切替時にもPlayerにGame参照を渡す
+        if hasattr(self, 'create_buttons'):
+            self.create_buttons()
+
+    def create_buttons(self):
+        """スケーリングされたボタンRectを再計算"""
+        width = self.current_width
+        height = self.current_height
+        original_start_button_rect = pygame.Rect(width // 2 - 100, height // 2 - 50, 200, 50)
+        original_upgrade_button_rect = pygame.Rect(width // 2 - 100, height // 2 + 20, 200, 50)
+        original_quit_button_rect = pygame.Rect(width // 2 - 100, height // 2 + 90, 200, 50)
+        self.start_button = pygame.Rect(
+            int(original_start_button_rect.x),
+            int(original_start_button_rect.y),
+            int(original_start_button_rect.width),
+            int(original_start_button_rect.height)
+        )
+        self.upgrade_button = pygame.Rect(
+            int(original_upgrade_button_rect.x),
+            int(original_upgrade_button_rect.y),
+            int(original_upgrade_button_rect.width),
+            int(original_upgrade_button_rect.height)
+        )
+        self.quit_button = pygame.Rect(
+            int(original_quit_button_rect.x),
+            int(original_quit_button_rect.y),
+            int(original_quit_button_rect.width),
+            int(original_quit_button_rect.height)
+        )
 
 if __name__ == "__main__":
     game = Game()

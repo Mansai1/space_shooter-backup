@@ -89,7 +89,7 @@ class Option:
         if target:
             # レベルに応じた弾を生成
             bullets = OptionBulletManager.create_level_appropriate_bullets(
-                self.x, self.y - self.size//2, level, target
+                self.x, self.y - self.size//2, level, target, game=self.player.game
             )
             
             self.shoot_cooldown = self.shoot_interval
@@ -204,3 +204,40 @@ class OptionManager:
     def reset(self):
         """子機をリセット"""
         self.options.clear()
+
+class OptionBulletManager:
+    @staticmethod
+    def create_level_appropriate_bullets(x, y, level, target_enemy=None, game=None):
+        bullets = []
+        from bullet import HomingBullet, Bullet, SpreadBullet
+        if level >= 12:
+            if target_enemy:
+                bullets.append(HomingBullet(x, y, target=target_enemy, game=game))
+            else:
+                bullets.append(Bullet(x, y, bullet_type="option", game=game))
+        elif level >= 8:
+            bullets = SpreadBullet.create_spread(x, y, num_bullets=3, spread_angle=20, bullet_type="option", game=game)
+        elif level >= 5:
+            bullet = Bullet(x, y, bullet_type="option", damage=3, game=game)
+            bullets.append(bullet)
+        else:
+            bullets.append(Bullet(x, y, bullet_type="option", game=game))
+        return bullets
+
+class SpreadBullet:
+    @staticmethod
+    def create_spread(x, y, num_bullets=3, spread_angle=30, bullet_type="normal", game=None):
+        bullets = []
+        center_angle = 0
+        from bullet import Bullet
+        if num_bullets == 1:
+            bullets.append(Bullet(x, y, direction_y=-1, bullet_type=bullet_type, game=game))
+        else:
+            for i in range(num_bullets):
+                if num_bullets % 2 == 1:
+                    angle_offset = (i - num_bullets // 2) * (spread_angle / (num_bullets - 1))
+                else:
+                    angle_offset = (i - num_bullets / 2 + 0.5) * (spread_angle / num_bullets)
+                angle = center_angle + angle_offset
+                bullets.append(Bullet(x, y, angle_override=angle - 90, bullet_type=bullet_type, game=game))
+        return bullets

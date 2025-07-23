@@ -9,7 +9,7 @@ from boss.environmental_boss import EnvironmentalBoss
 class Boss:
     """東方風ボスの基底クラス"""
     
-    def __init__(self, x, y, boss_type="basic", font=None, base_dir=None, player_level=1):
+    def __init__(self, x, y, boss_type="basic", font=None, base_dir=None, player_level=1, game=None):
         self.x = x
         self.y = y
         self.boss_type = boss_type
@@ -20,6 +20,7 @@ class Boss:
         self.image = None
         self.base_dir = base_dir
         self.player_level = player_level
+        self.game = game  # 追加: Gameインスタンス参照
 
         self.max_health = 0
         self.health = 0
@@ -129,30 +130,38 @@ class Boss:
     
     def update_movement(self):
         self.move_timer += 1
-        
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        margin = int(width * 0.08)
+        top_margin = 50
+        bottom_margin = 100
         if self.boss_type == "fairy":
             if self.move_timer % 120 == 0:
-                self.target_x = random.randint(100, SCREEN_WIDTH - 100)
+                self.target_x = random.randint(margin, width - margin)
             dx = self.target_x - self.x
             if abs(dx) > 2:
                 self.x += dx * 0.02
-                
+            # 画面内に制限
+            self.x = max(margin, min(width - margin, self.x))
+            self.y = max(top_margin, min(height - bottom_margin, self.y))
         elif self.boss_type == "witch":
-            center_x = SCREEN_WIDTH // 2
+            center_x = width // 2
             center_y = 150
             radius = 80
             angle = self.move_timer * 0.02
             self.x = center_x + math.cos(angle) * radius
             self.y = center_y + math.sin(angle * 2) * 30
-            
+            self.x = max(margin, min(width - margin, self.x))
+            self.y = max(top_margin, min(height - bottom_margin, self.y))
         elif self.boss_type == "dragon":
             if self.move_timer % 180 == 0:
                 self.move_direction *= -1
-                self.target_x = SCREEN_WIDTH // 4 if self.move_direction < 0 else SCREEN_WIDTH * 3 // 4
-            
+                self.target_x = width // 4 if self.move_direction < 0 else width * 3 // 4
             dx = self.target_x - self.x
             if abs(dx) > 3:
                 self.x += dx * 0.015
+            self.x = max(margin, min(width - margin, self.x))
+            self.y = max(top_margin, min(height - bottom_margin, self.y))
     
     def update_spell_cards(self):
         if not self.spell_cards:
@@ -189,27 +198,27 @@ class Boss:
                 for i in range(8):
                     angle = (self.spell_timer * 0.1 + i * 45) * math.pi / 180
                     speed = 2.5
-                    bullets.append(BossBullet(self.x + math.cos(angle) * 30, self.y + math.sin(angle) * 30, math.cos(angle) * speed, math.sin(angle) * speed, color=CYAN))
+                    bullets.append(BossBullet(self.x + math.cos(angle) * 30, self.y + math.sin(angle) * 30, math.cos(angle) * speed, math.sin(angle) * speed, color=CYAN, game=self.game))
         
         elif pattern == "light_burst":
             if self.spell_timer % 30 == 0:
                 for i in range(12):
                     angle = i * 30 * math.pi / 180
                     speed = 3.0
-                    bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=YELLOW))
+                    bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=YELLOW, game=self.game))
         
         elif pattern == "magic_storm":
             if self.spell_timer % 8 == 0:
                 for layer in range(3):
                     angle = (self.spell_timer * 0.2 + layer * 120) * math.pi / 180
                     speed = 2.0 + layer * 0.5
-                    bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=MAGENTA))
+                    bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=MAGENTA, game=self.game))
         
         elif pattern == "star_rain":
             if self.spell_timer % 15 == 0:
                 for i in range(5):
-                    x = random.randint(50, SCREEN_WIDTH - 50)
-                    bullets.append(BossBullet(x, -10, 0, 3.5, color=WHITE))
+                    x = random.randint(50, self.game.current_width - 50) if self.game else random.randint(50, SCREEN_WIDTH - 50)
+                    bullets.append(BossBullet(x, -10, 0, 3.5, color=WHITE, game=self.game))
         
         elif pattern == "spiral_curse":
             if self.spell_timer % 5 == 0:
@@ -217,15 +226,16 @@ class Boss:
                 for direction in [-1, 1]:
                     final_angle = angle * direction
                     speed = 2.5
-                    bullets.append(BossBullet(self.x + math.cos(final_angle) * 20, self.y + math.sin(final_angle) * 20, math.cos(final_angle) * speed, math.sin(final_angle) * speed, color=RED))
+                    bullets.append(BossBullet(self.x + math.cos(final_angle) * 20, self.y + math.sin(final_angle) * 20, math.cos(final_angle) * speed, math.sin(final_angle) * speed, color=RED, game=self.game))
         
         elif pattern == "dragon_roar":
             if self.spell_timer % 40 == 0:
-                center_angle = math.atan2(400 - self.y, SCREEN_WIDTH//2 - self.x)
+                width = self.game.current_width if self.game else SCREEN_WIDTH
+                center_angle = math.atan2(400 - self.y, width//2 - self.x)
                 for i in range(15):
                     angle = center_angle + (i - 7) * 0.2
                     speed = 4.0
-                    bullets.append(BossBullet(self.x, self.y + 30, math.cos(angle) * speed, math.sin(angle) * speed, color=ORANGE))
+                    bullets.append(BossBullet(self.x, self.y + 30, math.cos(angle) * speed, math.sin(angle) * speed, color=ORANGE, game=self.game))
         
         elif pattern == "fire_spiral":
             if self.spell_timer % 12 == 0:
@@ -233,23 +243,25 @@ class Boss:
                     for i in range(6):
                         angle = (self.spell_timer * 0.15 + i * 60 + ring * 30) * math.pi / 180
                         speed = 2.0 + ring * 0.8
-                        bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=RED))
+                        bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=RED, game=self.game))
         
         elif pattern == "thunder_spear":
             if self.spell_timer % 60 == 0:
                 for i in range(3):
-                    target_x = random.randint(100, SCREEN_WIDTH - 100)
-                    target_y = SCREEN_HEIGHT
+                    width = self.game.current_width if self.game else SCREEN_WIDTH
+                    height = self.game.current_height if self.game else SCREEN_HEIGHT
+                    target_x = random.randint(100, width - 100)
+                    target_y = height
                     angle = math.atan2(target_y - self.y, target_x - self.x)
                     speed = 6.0
-                    bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=BLUE))
+                    bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=BLUE, game=self.game))
         
         elif pattern == "ultimate_blast":
             if self.spell_timer % 8 == 0: # 発射間隔を少し長く (6 -> 8)
                 for i in range(12): # 同時発射数を減らす (15 -> 12)
                     angle = i * 30 * math.pi / 180 # 角度を調整 (360/12=30)
                     speed = 2.0 + random.random()
-                    bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=PURPLE))
+                    bullets.append(BossBullet(self.x, self.y, math.cos(angle) * speed, math.sin(angle) * speed, color=PURPLE, game=self.game))
         
         return bullets
     
@@ -325,9 +337,10 @@ class Boss:
         pygame.draw.circle(screen, color, (int(self.x), int(self.y)), self.width // 2 + width, width)
 
 class BossManager:
-    def __init__(self, base_dir=None):
+    def __init__(self, base_dir=None, game=None):
         self.current_boss = None
         self.base_dir = base_dir
+        self.game = game
         self.spawned_bosses_for_level = set()
         
         self.boss_schedule = [
@@ -364,14 +377,14 @@ class BossManager:
     def spawn_boss(self, boss_type, font, player_level):
         if self.current_boss:
             return None
-        
-        x = SCREEN_WIDTH // 2
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        x = width // 2
         y = -50
         
         if boss_type == "environmental":
-            self.current_boss = EnvironmentalBoss(x, y, player_level)
+            self.current_boss = EnvironmentalBoss(x, y, player_level, game=self.game)
         else:
-            self.current_boss = Boss(x, y, boss_type, font, self.base_dir, player_level)
+            self.current_boss = Boss(x, y, boss_type, font, self.base_dir, player_level, game=self.game)
         
         # スポーンしたボスタイプを記録
         self.spawned_bosses_for_level.add(boss_type)

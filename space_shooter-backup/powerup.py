@@ -4,7 +4,7 @@ import math
 from settings import *
 
 class PowerUp:
-    def __init__(self, x, y, power_type):
+    def __init__(self, x, y, power_type, game=None):
         self.x = x
         self.y = y
         self.size = POWERUP_SIZE
@@ -14,6 +14,7 @@ class PowerUp:
         self.active = True
         self.bob_offset = 0  # フワフワ動くエフェクト用
         self.bob_speed = 0.1
+        self.game = game  # 追加: Gameインスタンス参照
         
     def update(self):
         self.y += self.speed
@@ -24,7 +25,8 @@ class PowerUp:
         self.rect.center = (self.x, float_y)
         
         # 画面外に出たら非アクティブに
-        if self.y > SCREEN_HEIGHT + self.size:
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        if self.y > height + self.size:
             self.active = False
     
     def draw(self, screen):

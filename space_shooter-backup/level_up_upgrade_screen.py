@@ -1,7 +1,10 @@
 import pygame
 import random
 from settings import *
-from utils import draw_text_multiline
+import pygame
+import random
+from settings import *
+from utils import draw_text_multiline, draw_text_relative, draw_text_absolute
 
 LIGHT_BLUE = (173, 216, 230)
 
@@ -45,19 +48,28 @@ class LevelUpUpgradeScreen:
     def start_selection(self):
         """アップグレード選択画面を開始する"""
         self.is_active = True
-        # 重複しないようにランダムに3つ選ぶ
+        # 重複しないようにラ��ダムに3つ選ぶ
         self.current_choices = random.sample(self.all_upgrades, min(3, len(self.all_upgrades)))
         
         # 選択肢のUI矩形を準備
+        screen_width, screen_height = self.screen.get_size()
         self.choice_rects.clear()
-        card_width, card_height = 220, 280
-        total_width = len(self.current_choices) * card_width + (len(self.current_choices) - 1) * 20
-        start_x = (SCREEN_WIDTH - total_width) / 2
+        
+        card_width_percent = 0.25
+        card_height_percent = 0.45
+        padding_percent = 0.02
+
+        card_width_abs = int(screen_width * card_width_percent)
+        card_height_abs = int(screen_height * card_height_percent)
+        padding_abs = int(screen_width * padding_percent)
+
+        total_width_abs = len(self.current_choices) * card_width_abs + (len(self.current_choices) - 1) * padding_abs
+        start_x_abs = (screen_width - total_width_abs) // 2
         
         for i in range(len(self.current_choices)):
-            x = start_x + i * (card_width + 20)
-            y = (SCREEN_HEIGHT - card_height) / 2
-            self.choice_rects.append(pygame.Rect(x, y, card_width, card_height))
+            x_abs = start_x_abs + i * (card_width_abs + padding_abs)
+            y_abs = (screen_height - card_height_abs) // 2
+            self.choice_rects.append(pygame.Rect(x_abs, y_abs, card_width_abs, card_height_abs))
 
     def handle_event(self, event):
         """マウスクリックを処理し、選択されたアップグレードを返す"""
@@ -74,13 +86,12 @@ class LevelUpUpgradeScreen:
             return
 
         # 半透明のオーバーレイ
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
 
         # タイトル
-        title_surf = self.font.render("LEVEL UP! CHOOSE YOUR POWER", True, YELLOW)
-        self.screen.blit(title_surf, (SCREEN_WIDTH / 2 - title_surf.get_width() / 2, 100))
+        draw_text_relative(self.screen, "LEVEL UP! CHOOSE YOUR POWER", 0.5, 0.15, self.font, YELLOW)
 
         # 各選択肢カードを描画
         for i, rect in enumerate(self.choice_rects):
@@ -91,8 +102,8 @@ class LevelUpUpgradeScreen:
             pygame.draw.rect(self.screen, LIGHT_BLUE, rect, 2, border_radius=10)
             
             # アップグレード名
-            name_surf = self.font.render(upgrade.name, True, WHITE)
-            self.screen.blit(name_surf, (rect.centerx - name_surf.get_width() / 2, rect.y + 30))
+            draw_text_absolute(self.screen, upgrade.name, rect.centerx, rect.y + 30, self.font, WHITE)
 
             # 説明文
+            # draw_text_multilineはrectと絶対座標を直接受け取るため、そのまま使用
             draw_text_multiline(self.screen, upgrade.description, self.small_font, WHITE, rect.inflate(-40, -40), rect.x + 20, rect.y + 120)

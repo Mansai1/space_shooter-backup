@@ -6,7 +6,7 @@ from option import OptionManager
 from bullet import Bullet, Laser, Bomb # Bullet, Laser, Bombを直接インポート
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y, upgrade_data=None):
+    def __init__(self, x, y, upgrade_data=None, game=None):
         super().__init__()
         self.x = x
         self.y = y
@@ -15,6 +15,7 @@ class Player(pygame.sprite.Sprite):
         self.upgrade_data = upgrade_data if upgrade_data else self.load_default_upgrades()
 
         self.current_weapon = self.upgrade_data.get('current_weapon', 'normal') # 現在の武器
+        self.game = game  # 追加: Gameインスタンス参照
 
         # レベルアップで獲得する機能のフラグ
         self.has_triple_shot = False
@@ -88,8 +89,11 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_UP] or keys[pygame.K_w]: self.y -= current_speed
         if keys[pygame.K_DOWN] or keys[pygame.K_s]: self.y += current_speed
             
-        self.x = max(self.size//2, min(SCREEN_WIDTH - self.size//2, self.x))
-        self.y = max(self.size//2, min(SCREEN_HEIGHT - self.size//2, self.y))
+        # 画面端制限をGameのcurrent_width/current_heightで行う
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        self.x = max(self.size//2, min(width - self.size//2, self.x))
+        self.y = max(self.size//2, min(height - self.size//2, self.y))
         
         self.rect.center = (self.x, self.y)
         
@@ -138,7 +142,7 @@ class Player(pygame.sprite.Sprite):
     def shoot_player(self):
         if not self.can_shoot(): return []
         bullets = []
-
+        g = self.game
         # レベルアップで獲得した機能による弾の発射
         if self.has_laser:
             bullets.append(Laser(self.x, self.y - self.size//2, direction_y=-1, damage=self.attack_power * 2))
@@ -147,30 +151,27 @@ class Player(pygame.sprite.Sprite):
             bullets.append(Bomb(self.x, self.y - self.size//2, direction_y=-1))
             self.shoot_cooldown = self.bomb_cooldown
         elif self.has_triple_shot:
-            bullets.append(Bullet(self.x, self.y - self.size//2, direction_y=-1, damage=self.attack_power))
-            bullets.append(Bullet(self.x - 10, self.y - self.size//2, direction_y=-1, angle=-15, damage=self.attack_power))
-            bullets.append(Bullet(self.x + 10, self.y - self.size//2, direction_y=-1, angle=15, damage=self.attack_power))
+            bullets.append(Bullet(self.x, self.y - self.size//2, direction_y=-1, damage=self.attack_power, game=g))
+            bullets.append(Bullet(self.x - 10, self.y - self.size//2, direction_y=-1, angle=-15, damage=self.attack_power, game=g))
+            bullets.append(Bullet(self.x + 10, self.y - self.size//2, direction_y=-1, angle=15, damage=self.attack_power, game=g))
             self.shoot_cooldown = self.normal_cooldown
         else:
             # 現在選択されている武器に応じて弾を発射
             if self.current_weapon == "normal":
-                bullets.append(Bullet(self.x, self.y - self.size//2, direction_y=-1, damage=self.attack_power))
+                bullets.append(Bullet(self.x, self.y - self.size//2, direction_y=-1, damage=self.attack_power, game=g))
                 self.shoot_cooldown = self.normal_cooldown
             elif self.current_weapon == "wide_shot":
-                bullets.append(Bullet(self.x, self.y - self.size//2, direction_y=-1, damage=self.attack_power))
-                bullets.append(Bullet(self.x - 10, self.y - self.size//2, direction_y=-1, angle=-15, damage=self.attack_power))
-                bullets.append(Bullet(self.x + 10, self.y - self.size//2, direction_y=-1, angle=15, damage=self.attack_power))
+                bullets.append(Bullet(self.x, self.y - self.size//2, direction_y=-1, damage=self.attack_power, game=g))
+                bullets.append(Bullet(self.x - 10, self.y - self.size//2, direction_y=-1, angle=-15, damage=self.attack_power, game=g))
+                bullets.append(Bullet(self.x + 10, self.y - self.size//2, direction_y=-1, angle=15, damage=self.attack_power, game=g))
                 self.shoot_cooldown = self.normal_cooldown
             elif self.current_weapon == "laser_weapon":
                 bullets.append(Laser(self.x, self.y - self.size//2, direction_y=-1, damage=self.attack_power * 2))
                 self.shoot_cooldown = self.laser_cooldown
-        
         # 連射パワーアップはクールダウンのみ短縮
         if self.has_rapid_fire:
             self.shoot_cooldown = self.rapid_fire_cooldown
-
         self.shoot_cooldown *= self.fire_rate_multiplier
-
         return bullets
 
     def shoot_special(self, boss=None):
@@ -223,8 +224,10 @@ class Player(pygame.sprite.Sprite):
         self.option_manager.reset()
 
     def reset_position(self):
-        self.x = SCREEN_WIDTH // 2
-        self.y = SCREEN_HEIGHT - 100
+        width = self.game.current_width if self.game else SCREEN_WIDTH
+        height = self.game.current_height if self.game else SCREEN_HEIGHT
+        self.x = width // 2
+        self.y = height - 100
 
     def change_weapon(self, weapon_type):
         if weapon_type in self.upgrade_data.get('unlocked_weapons', []):
