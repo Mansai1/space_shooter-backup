@@ -133,3 +133,25 @@ class PowerUp:
             # 点滅エフェクト
             if pygame.time.get_ticks() % 400 < 200:
                 pygame.draw.circle(screen, RED, (int(self.x), int(float_y)), 3)
+
+        elif self.power_type == "life_up":
+            # 赤色のハート型＋白枠＋中央に「1UP」
+            heart_surface = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
+            cx, cy = self.size // 2, self.size // 2
+            scale = self.size // 2
+
+            # ハートの形状を計算
+            points = []
+            for t in range(0, 360, 5):
+                rad = math.radians(t)
+                x = cx + scale * 0.95 * math.sin(rad) ** 3
+                y = cy - scale * (0.7 * math.cos(rad) - 0.3 * math.cos(2*rad) - 0.2 * math.cos(3*rad) - 0.1 * math.cos(4*rad))
+                points.append((x, y))
+            pygame.draw.polygon(heart_surface, RED, points)
+            pygame.draw.polygon(heart_surface, WHITE, points, 2)
+            screen.blit(heart_surface, (self.x - cx, float_y - cy))
+            # "1UP"テキスト
+            font = pygame.font.Font(None, 18)
+            text = font.render("1UP", True, WHITE)
+            text_rect = text.get_rect(center=(self.x, float_y))
+            screen.blit(text, text_rect)

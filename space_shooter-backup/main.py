@@ -139,7 +139,8 @@ class Game:
         self.particles = []
         self.damage_numbers = [] # ダメージ数値管理リストを追加
         self.score = 0
-        self.lives = 3 # ライフ制に変更
+        # self.lives = 3 # ライフ制に変更
+        self.lives = 100 #デバック用
         self.enemy_spawn_timer = 0
         self.powerup_spawn_timer = 0
         self.wave_spawn_timer = 0
@@ -213,6 +214,9 @@ class Game:
                             special_attack = self.player.shoot_special(self.boss_manager.get_current_boss())
                             if special_attack:
                                 self.special_attacks.append(special_attack)
+                                # 必殺技発動時に敵弾・ボス弾を全消去
+                                self.enemy_bullets.clear()
+                                self.boss_bullets.clear()
                                 play_sound('masupa')
                         elif event.key == pygame.K_m:
                             if self.sound_manager.music_playing:
@@ -284,6 +288,8 @@ class Game:
             boss = self.boss_manager.spawn_boss(boss_type, self.font, self.level_system.current_level)
             if boss:
                 print(f"Boss spawned: {boss_type}")
+                # ボス戦突入時に道中の敵を全て消滅させる
+                self.enemies.clear()
         
         # ボスの更新
         enemy_sprites = pygame.sprite.Group(*self.enemies)
@@ -514,7 +520,7 @@ class Game:
                             # レベルアップしたかどうかをチェック
                             if self.level_system.add_experience(exp_gain):
                                 self.game_state = "LEVEL_UP_CHOICE"
-                                self.level_up_upgrade_screen.start_selection()
+                                self.level_up_upgrade_screen.start_selection(self.player)
                                 self.player.on_level_up(self.level_system.current_level) # プレイヤーのレベルアップ処理を呼び出す
 
                             self.level_system.total_enemies_defeated += 1
@@ -547,31 +553,30 @@ class Game:
             for bullet in self.bullets[:]:
                 if check_collision(bullet.rect, current_boss.rect):
                     # レーザーでない場合は弾を削除
-                    if not hasattr(bullet, 'penetrating') or not bullet.penetrating:
+                    if hasattr(bullet, 'penetrating') and bullet.penetrating:
+                        # レーザーの場合はボスに当たったら1ヒットで消す
+                        if hasattr(bullet, 'hit_boss_once'):
+                            bullet.hit_boss_once()
+                    else:
                         self.bullets.remove(bullet)
-                    
                     # ボスにダメージを与える
                     damage = getattr(bullet, 'damage', 1)
                     was_destroyed = current_boss.take_damage(damage)
-
                     # ダメージ数値を生成
                     self.damage_numbers.append(DamageNumber(current_boss.x, current_boss.y, damage, self.small_font, RED))
-                    
                     if was_destroyed:
                         # ボス撃破時の処理
                         self.score += current_boss.score_value
-                        
+                        self.lives += 1  # ボス撃破で残機を1つ増やす
                         # 大量の経験値獲得（新システム）
                         old_level = self.level_system.current_level
                         # ボス撃破の経験値（基本値の10倍、さらに倍率適用）
                         boss_base_exp = BASE_EXPERIENCE_GAIN * 10
                         self.level_system.add_experience(boss_base_exp)
                         self.level_system.total_enemies_defeated += 1
-                        
                         # レベルアップチェック
                         if self.level_system.current_level > old_level:
                             self.level_up_notification_timer = LEVEL_UP_NOTIFICATION_DURATION
-                        
                         # ボス撃破エフェクト
                         boss_explosion_particles = create_explosion_effect()
                         for i in range(5):  # 複数の爆発エフェクト
@@ -579,12 +584,10 @@ class Game:
                                 particle['x'] = current_boss.x + random.randint(-30, 30)
                                 particle['y'] = current_boss.y + random.randint(-30, 30)
                             self.particles.extend(boss_explosion_particles)
-                        
                         # ボス撃破音
                         # play_sound('enemy_hit')  # ボス撃破音（適切な音があれば変更）
                         self.game_state = "STAGE_CLEAR"
                         print(f"Boss defeated! Score: {current_boss.score_value}")  # デバッグ用
-                    
                     # レーザーでない場合はループを抜ける
                     if not hasattr(bullet, 'penetrating') or not bullet.penetrating:
                         break
@@ -701,6 +704,11 @@ class Game:
                         self.enemies.remove(enemy)
                         self.score += getattr(enemy, 'score_value', ENEMY_SCORE)
 
+            # MasterSparkのビーム範囲に当たっている敵弾・ボス弾だけを消す
+            if hasattr(attack, 'rect'):
+                self.enemy_bullets = [b for b in self.enemy_bullets if not check_collision(attack.rect, b.rect)]
+                self.boss_bullets = [b for b in self.boss_bullets if not check_collision(attack.rect, b.rect)]
+
             if current_boss:
                 if check_collision(attack.rect, current_boss.rect):
                     if current_boss.take_damage(attack.damage):
@@ -719,22 +727,39 @@ class Game:
     
     def draw(self):
         """描画処理"""
-        # 背景画像のスクロール描画
+        # 背景画像のスクロール描画（横方向にもタイル状に描画して黒帯を防ぐ）
         bg_scaled = pygame.transform.scale(self.background_image, (self.current_width, self.current_height))
-        y1 = self.scroll_y
-        y2 = self.scroll_y - self.current_height
-        self.screen.blit(bg_scaled, (0, y1))
-        self.screen.blit(bg_scaled, (0, y2))
+        for x in range(0, self.current_width, bg_scaled.get_width()):
+            y1 = self.scroll_y
+            y2 = self.scroll_y - self.current_height
+            self.screen.blit(bg_scaled, (x, y1))
+            self.screen.blit(bg_scaled, (x, y2))
 
         if self.game_state == "TITLE":
-            draw_text_relative(self.screen, "Space Shooter", 0.5, 0.25, self.font, WHITE)
-            # ボタンは既存のRectを使用するため、絶対座標で描画
-            pygame.draw.rect(self.screen, DARK_GRAY, self.start_button)
-            draw_text_absolute(self.screen, "Start", self.start_button.centerx, self.start_button.centery, self.font, WHITE)
-            pygame.draw.rect(self.screen, DARK_GRAY, self.upgrade_button)
-            draw_text_absolute(self.screen, "Upgrade", self.upgrade_button.centerx, self.upgrade_button.centery, self.font, WHITE)
-            pygame.draw.rect(self.screen, DARK_GRAY, self.quit_button)
-            draw_text_absolute(self.screen, "Quit", self.quit_button.centerx, self.quit_button.centery, self.font, WHITE)
+            # タイトルとボタンを中央揃え・等間隔で配置
+            center_x = self.current_width // 2
+            title_y = int(self.current_height * 0.22)
+            button_w, button_h = 240, 60
+            button_gap = 30
+            # タイトル
+            draw_text_absolute(self.screen, "Space Shooter", center_x, title_y, self.font, WHITE, anchor="center")
+            # ボタン配置
+            total_height = 3 * button_h + 2 * button_gap
+            start_y = self.current_height // 2 - total_height // 2
+            btn_rects = []
+            for i in range(3):
+                y = start_y + i * (button_h + button_gap)
+                btn_rects.append(pygame.Rect(center_x - button_w // 2, y, button_w, button_h))
+            self.start_button, self.upgrade_button, self.quit_button = btn_rects
+            # Start
+            pygame.draw.rect(self.screen, DARK_GRAY, self.start_button, border_radius=10)
+            draw_text_absolute(self.screen, "Start", self.start_button.centerx, self.start_button.centery, self.font, WHITE, anchor="center")
+            # Upgrade
+            pygame.draw.rect(self.screen, DARK_GRAY, self.upgrade_button, border_radius=10)
+            draw_text_absolute(self.screen, "Upgrade", self.upgrade_button.centerx, self.upgrade_button.centery, self.font, WHITE, anchor="center")
+            # Quit
+            pygame.draw.rect(self.screen, DARK_GRAY, self.quit_button, border_radius=10)
+            draw_text_absolute(self.screen, "Quit", self.quit_button.centerx, self.quit_button.centery, self.font, WHITE, anchor="center")
 
         elif self.game_state == "PLAYING" or self.is_paused:
             # --- ゲーム要素の描画 ---
@@ -846,6 +871,9 @@ class Game:
             draw_stage_clear(self.screen, self.font)
 
         pygame.display.flip()
+        # FPS表示
+        fps = int(self.clock.get_fps())
+        draw_text_relative(self.screen, f"FPS: {fps}", 0.95, 0.05, self.small_font, WHITE, anchor="topright")
     
     def run(self):
         """メインゲームループ"""
@@ -873,8 +901,12 @@ class Game:
         sys.exit()
 
     def set_screen(self, width, height, fullscreen):
-        """画面サイズ・スケール・ボタンを再計算"""
-        flags = pygame.FULLSCREEN if fullscreen else 0
+        """画面サイズ・スケール・ボタンを再計算（全画面時はSCALEDフラグで黒帯防止）"""
+        flags = pygame.DOUBLEBUF
+        if fullscreen:
+            flags |= pygame.FULLSCREEN
+            if hasattr(pygame, 'SCALED'):
+                flags |= pygame.SCALED
         self.screen = pygame.display.set_mode((width, height), flags)
         self.screen_scale_x = width / SCREEN_WIDTH
         self.screen_scale_y = height / SCREEN_HEIGHT

@@ -160,31 +160,28 @@ class Laser:
         self.penetrating = True  # 貫通属性
         self.hits = 0  # ヒット回数
         self.max_hits = 5  # 最大ヒット回数
-        
+        self.hit_boss = False  # ボスに当たったかどうか
         # レーザーの矩形を作成
         if direction_y == -1:  # 上向き
             self.rect = pygame.Rect(x - self.width//2, y - self.length, self.width, self.length)
         else:  # 下向き
             self.rect = pygame.Rect(x - self.width//2, y, self.width, self.length)
-    
+
     def update(self):
         self.y += self.speed * self.direction_y
-        
         # レーザーの矩形を更新
         if self.direction_y == -1:  # 上向き
             self.rect = pygame.Rect(self.x - self.width//2, self.y - self.length, self.width, self.length)
         else:  # 下向き
             self.rect = pygame.Rect(self.x - self.width//2, self.y, self.width, self.length)
-        
         # 画面外に出たら非アクティブに
         height = SCREEN_HEIGHT  # Laserクラスにはgameパラメータがないため、固定値を使用
         if (self.y < -self.length or self.y > height + self.length):
             self.active = False
-        
         # 最大ヒット数に達したら非アクティブに
-        if self.hits >= self.max_hits:
+        if self.hits >= self.max_hits or self.hit_boss:
             self.active = False
-    
+
     def draw(self, screen):
         if self.direction_y == -1:  # 上向き
             start_pos = (self.x, self.y)
@@ -192,28 +189,25 @@ class Laser:
         else:  # 下向き
             start_pos = (self.x, self.y)
             end_pos = (self.x, self.y + self.length)
-        
-        # レーザーの本体を描画
-        pygame.draw.line(screen, CYAN, start_pos, end_pos, self.width)
-        # レーザーの中心線を描画
-        pygame.draw.line(screen, WHITE, start_pos, end_pos, 2)
-        
-        # エフェクト（輝き）
-        for i in range(3):
-            alpha = 150 - i * 50
-            effect_width = self.width + i * 2
-            # 透明度を表現するために色を薄くする
-            effect_color = (
-                min(255, CYAN[0] + alpha//3),
-                min(255, CYAN[1] + alpha//3),
-                min(255, CYAN[2] + alpha//3)
-            )
-            if effect_width > 0:
-                pygame.draw.line(screen, effect_color, start_pos, end_pos, max(1, effect_width))
-    
+        # --- ビームらしいグラデーションと発光 ---
+        for i in range(6):
+            width = self.width + i * 6
+            alpha = max(30, 180 - i * 30)
+            color = (100 + i*25, 255, 255, alpha)  # 外側ほど薄いシアン
+            surf = pygame.Surface((width, abs(end_pos[1] - start_pos[1])), pygame.SRCALPHA)
+            pygame.draw.rect(surf, color, (0, 0, width, abs(end_pos[1] - start_pos[1])))
+            if self.direction_y == -1:
+                screen.blit(surf, (self.x - width//2, end_pos[1]))
+            else:
+                screen.blit(surf, (self.x - width//2, start_pos[1]))
+        # 中心の明るい線
+        pygame.draw.line(screen, (255,255,255), start_pos, end_pos, 4)
+        pygame.draw.line(screen, (200,255,255), start_pos, end_pos, 2)
+
     def hit_enemy(self):
-        """敵にヒットした時の処理"""
         self.hits += 1
+    def hit_boss_once(self):
+        self.hit_boss = True
 
 class Bomb:
     def __init__(self, x, y, direction_y=-1):

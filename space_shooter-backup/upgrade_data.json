@@ -1,11 +1,12 @@
 {
-    "points": 2602.0,
-    "attack_level": 6,
-    "fire_rate_level": 1,
+    "points": 1033.0,
+    "attack_level": 1,
+    "fire_rate_level": 4,
     "speed_level": 1,
-    "option_level": 5,
+    "option_level": 6,
     "unlocked_weapons": [
-        "normal"
+        "normal",
+        "wide_shot"
     ],
-    "current_weapon": "normal"
+    "current_weapon": "wide_shot"
 }

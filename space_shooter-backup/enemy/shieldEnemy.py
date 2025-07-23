@@ -2,10 +2,21 @@ import pygame
 import math
 from enemy.enemy_base import Enemy
 from settings import *
+import os
 
 class ShieldEnemy(Enemy):
     """シールド敵 - 一定ダメージまで無敵"""
+    # 画像をクラス変数として一度だけロード
+    image = None
+    @classmethod
+    def load_image(cls):
+        if cls.image is None:
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            img_path = os.path.join(base_dir, 'assets', 'img', 'shield.png')
+            cls.image = pygame.image.load(img_path).convert_alpha()
+
     def __init__(self, x, y, player, level_multipliers=None, game=None):
+        self.load_image()
         health = 1
         speed = ENEMY_SPEED * 0.9
         
@@ -13,7 +24,7 @@ class ShieldEnemy(Enemy):
             health = max(1, int(health * level_multipliers.get('health', 1.0)))
             speed = speed * level_multipliers.get('speed', 1.0)
             
-        super().__init__(x, y, player, health, speed, (0, 191, 255), ENEMY_SIZE, game=game)
+        super().__init__(x, y, player, health, speed, (0, 191, 255), int(ENEMY_SIZE * 1.5), game=game)
         self.enemy_type = "shield"
         self.score_value = ENEMY_SCORE * 3
         self.shield_health = 5
@@ -33,10 +44,15 @@ class ShieldEnemy(Enemy):
             return super().take_damage(damage)
     
     def draw(self, screen):
-        """シールド敵は円形＋シールドエフェクトで描画"""
-        # メイン部分（円形）
-        pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.size//2)
-        pygame.draw.circle(screen, self.outline_color, (int(self.x), int(self.y)), self.size//2, 2)
+        """shield.png画像で描画し、シールドエフェクトや目も重ねる"""
+        if self.image:
+            img = pygame.transform.scale(self.image, (self.size, self.size))
+            rect = img.get_rect(center=(self.x, self.y))
+            screen.blit(img, rect)
+        else:
+            # 画像がない場合は円形で描画
+            pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.size//2)
+            pygame.draw.circle(screen, self.outline_color, (int(self.x), int(self.y)), self.size//2, 2)
         
         # シールドエフェクト
         if self.shield_active:

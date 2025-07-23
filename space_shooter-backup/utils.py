@@ -88,8 +88,25 @@ def draw_score(screen, score, font):
     draw_text_relative(screen, f"スコア: {score}", 0.05, 0.05, font, WHITE, anchor="topleft")
 
 def draw_lives(screen, lives, font):
-    """ライフを描画"""
-    draw_text_relative(screen, f"HP: {lives}", 0.05, 0.1, font, WHITE, anchor="topleft")
+    """残機を描画（アイコン＋数字）"""
+    # 残機アイコンとしてプレイヤー画像を小さく表示
+    import os
+    img_path = os.path.join(os.path.dirname(__file__), 'assets', 'img', 'Image.png')
+    try:
+        icon = pygame.image.load(img_path).convert_alpha()
+        icon_size = 24
+        icon = pygame.transform.scale(icon, (icon_size, icon_size))
+        for i in range(min(lives, 5)):
+            screen.blit(icon, (20 + i * (icon_size + 6), 20))
+        # 6機以上は「×n」表記
+        if lives > 5:
+            text = font.render(f"×{lives}", True, WHITE)
+            screen.blit(text, (20 + 5 * (icon_size + 6), 20))
+    except Exception:
+        # 画像がない場合はテキストのみ
+        pass
+    # テキストで残機数も表示
+    draw_text_relative(screen, f"残機: {lives}", 0.05, 0.1, font, WHITE, anchor="topleft")
 
 def draw_powerups(screen, player, small_font):
     """プレイヤーのパワーアップ状態を表示"""

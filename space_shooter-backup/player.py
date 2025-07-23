@@ -47,6 +47,7 @@ class Player(pygame.sprite.Sprite):
         
         self.option_manager = OptionManager(self)
         # self.on_level_up(1) # 初期の子機を設定  # ★ 削除
+        self.safety_flag = False  # セーフティ（次の被弾を無効化）
 
     def load_default_upgrades(self):
         return {"points": 0, "attack_level": 1, "fire_rate_level": 1, "speed_level": 1, "option_level": 0, "unlocked_weapons": ["normal"], "current_weapon": "normal"}
@@ -195,6 +196,10 @@ class Player(pygame.sprite.Sprite):
         return False
     
     def take_damage(self):
+        # セーフティ発動時はダメージを無効化し、1回で解除
+        if hasattr(self, 'safety_flag') and self.safety_flag:
+            self.safety_flag = False
+            return False
         if self.invincible:
             return False
 

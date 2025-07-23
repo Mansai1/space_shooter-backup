@@ -43,6 +43,7 @@ class KamikazeEnemy(Enemy):
         else:
             self.vel_x = 0
             self.vel_y = self.speed
+        self.size = 100
             
     def move(self):
         """プレイヤー方向に突進"""

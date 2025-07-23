@@ -16,8 +16,13 @@ class UpgradeOption:
         self.description = description
         self.apply = apply_func # プレイヤーに適用するための関数
 
-def get_available_upgrades():
-    """利用可能な全アップグレードのリストを返す"""
+def get_available_upgrades(player=None):
+    """利用可能な全アップグレードのリストを返す。playerを渡すとoption_addの説明を動的に変更"""
+    option_desc = "追従するオプションが1機増える"
+    option_func = lambda p: p.add_option()
+    if player is not None and getattr(player, 'option_count', 0) >= 4:
+        option_desc = "子機の攻撃力が上昇する"
+        option_func = lambda p: setattr(p, 'attack_power', getattr(p, 'attack_power', 1) + 1)
     return [
         UpgradeOption("fire_rate", "連射速度強化", "射撃間隔が10%短縮される", 
                       lambda p: setattr(p, 'fire_rate_multiplier', p.fire_rate_multiplier * 0.9)),
@@ -25,12 +30,11 @@ def get_available_upgrades():
                       lambda p: setattr(p, 'attack_power', p.attack_power + 1)),
         UpgradeOption("move_speed", "移動速度強化", "プレイヤーの移動速度が上昇する", 
                       lambda p: setattr(p, 'speed', p.speed + 0.5)),
-        UpgradeOption("option_add", "オプション追加", "追従するオプションが1機増える", 
-                      lambda p: p.add_option()),
-        UpgradeOption("shield_max", "シールド最大値UP", "シールドの最大値が1増加する", 
-                      lambda p: setattr(p, 'max_shield_hits', p.max_shield_hits + 1)),
-        UpgradeOption("shield_recover", "シールド回復", "シールドが2回復する", 
-                      lambda p: setattr(p, 'shield_hits', min(p.max_shield_hits, p.shield_hits + 2))),
+        UpgradeOption("option_add", "オプション追加", option_desc, option_func),
+        UpgradeOption("life_up", "残機アップ", "残機が1つ増える", 
+                      lambda p: setattr(p.game, 'lives', p.game.lives + 1)),
+        UpgradeOption("safety", "セーフティ", "次の被弾を無効化する（一度だけ有効）", 
+                      lambda p: setattr(p, 'safety_flag', True)),
         UpgradeOption("special_charge", "SPゲージチャージ", "必殺技ゲージが50%チャージされる", 
                       lambda p: setattr(p, 'special_gauge', min(SPECIAL_GAUGE_MAX, p.special_gauge + SPECIAL_GAUGE_MAX * 0.5))),
     ]
@@ -44,11 +48,14 @@ class LevelUpUpgradeScreen:
         self.current_choices = []
         self.choice_rects = []
         self.is_active = False
+        self.player_ref = None  # プレイヤー参照
 
-    def start_selection(self):
-        """アップグレード選択画面を開始する"""
+    def start_selection(self, player=None):
+        """アップグレード選択画面を開始する。playerを渡すとoption_add説明を動的に変更"""
         self.is_active = True
-        # 重複しないようにラ��ダムに3つ選ぶ
+        self.player_ref = player
+        # プレイヤー情報に応じてアップグレードリストを再生成
+        self.all_upgrades = get_available_upgrades(player)
         self.current_choices = random.sample(self.all_upgrades, min(3, len(self.all_upgrades)))
         
         # 選択肢のUI矩形を準備
