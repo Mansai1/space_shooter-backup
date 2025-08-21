@@ -87,6 +87,11 @@ class Game:
         self.clock = pygame.time.Clock()
         self.font = init_font()
         self.small_font = init_small_font()
+        
+        # FPS制御の初期化
+        self.last_frame_time = pygame.time.get_ticks()
+        self.frame_count = 0
+        self.fps_start_time = pygame.time.get_ticks()
         self.level_system = LevelSystem()
         self.difficulty_manager = DifficultyManager()  # 難易度管理を追加
         
@@ -109,6 +114,14 @@ class Game:
 
         # アップグレードデータをロード
         self.upgrade_data = self.load_upgrade_data()
+        
+        # システムFPS情報を表示
+        if FIXED_FPS:
+            from utils import get_system_fps_info
+            fps_info = get_system_fps_info()
+            print(f"システムFPS情報: 最大={fps_info['max_fps']}, 60FPS維持可能={fps_info['can_maintain_60fps']}")
+            if not fps_info['can_maintain_60fps']:
+                print("警告: システムが60FPSを維持できない可能性があります")
 
         self.game_state = "TITLE"  # TITLE, PLAYING, PAUSED, GAME_OVER, UPGRADE, LEVEL_UP_CHOICE
         self.is_paused = False
@@ -218,8 +231,12 @@ class Game:
                             self.sound_manager.play_music()
 
                 elif self.game_state == "PLAYING":
-                    if event.key == pygame.K_p:
+                    if event.key == pygame.K_p or event.key == pygame.K_ESCAPE:
                         self.is_paused = not self.is_paused
+                    elif event.key == pygame.K_q and self.is_paused:
+                        # 一時停止中にQキーでタイトル画面に戻る
+                        self.game_state = "TITLE"
+                        self.is_paused = False
                     elif not self.is_paused:
                         if event.key == pygame.K_SPACE:
                             if self.level_transition_timer > 0:
@@ -232,9 +249,7 @@ class Game:
                             special_attack = self.player.shoot_special(self.boss_manager.get_current_boss())
                             if special_attack:
                                 self.special_attacks.append(special_attack)
-                                # 必殺技発動時に敵弾・ボス弾を全消去
-                                self.enemy_bullets.clear()
-                                self.boss_bullets.clear()
+                                # 必殺技発動時の全消去は削除（範囲内の弾のみ消去）
                                 play_sound('masupa')
                         elif event.key == pygame.K_m:
                             if self.sound_manager.music_playing:
@@ -723,9 +738,9 @@ class Game:
                         self.score += getattr(enemy, 'score_value', ENEMY_SCORE)
 
             # MasterSparkのビーム範囲に当たっている敵弾・ボス弾だけを消す
-            if hasattr(attack, 'rect'):
-                self.enemy_bullets = [b for b in self.enemy_bullets if not check_collision(attack.rect, b.rect)]
-                self.boss_bullets = [b for b in self.boss_bullets if not check_collision(attack.rect, b.rect)]
+            if hasattr(attack, 'rect') and isinstance(attack, MasterSpark):
+                # MasterSparkの範囲内の弾のみを消去
+                self.clear_bullets_in_master_spark_range(attack)
 
             if current_boss:
                 if check_collision(attack.rect, current_boss.rect):
@@ -929,7 +944,13 @@ class Game:
                 self.update_game()
             
             self.draw()
-            self.clock.tick(FPS)
+            
+            # FPS固定制御
+            self.maintain_fixed_fps()
+            
+            # 従来のFPS制御（フォールバック）
+            if not FIXED_FPS:
+                self.clock.tick(FPS)
         
         self.save_upgrade_data()
         # クリーンアップ
@@ -1026,8 +1047,11 @@ class Game:
     def draw_fps_display(self):
         """画面右上にFPSを表示"""
         try:
-            # 現在のFPSを取得
-            fps = int(self.clock.get_fps())
+            # FPS固定が有効な場合は実際のFPSを取得、そうでなければ従来の方法
+            if FIXED_FPS:
+                fps = int(self.get_actual_fps())
+            else:
+                fps = int(self.clock.get_fps())
             
             # utils.pyのdraw_fps_counter関数を使用してFPSを表示
             from utils import draw_fps_counter
@@ -1036,6 +1060,112 @@ class Game:
         except Exception as e:
             # FPS表示でエラーが発生した場合は何もしない
             pass
+
+    def clear_bullets_in_master_spark_range(self, master_spark):
+        """MasterSparkの範囲内の弾のみを消去"""
+        try:
+            # MasterSparkの範囲を取得
+            spark_rect = master_spark.rect
+            
+            # 敵弾の範囲内チェック
+            bullets_to_remove = []
+            for bullet in self.enemy_bullets:
+                if bullet.active and self.is_bullet_in_master_spark_range(bullet, master_spark):
+                    bullets_to_remove.append(bullet)
+            
+            # 範囲内の敵弾を削除し、エフェクトを追加
+            for bullet in bullets_to_remove:
+                if bullet in self.enemy_bullets:
+                    # 弾消去エフェクトを生成
+                    from utils import create_bullet_clear_effect
+                    clear_effect = create_bullet_clear_effect(bullet.x, bullet.y, color=YELLOW)
+                    self.particles.extend(clear_effect)
+                    self.enemy_bullets.remove(bullet)
+            
+            # ボス弾の範囲内チェック
+            boss_bullets_to_remove = []
+            for bullet in self.boss_bullets:
+                if bullet.active and self.is_bullet_in_master_spark_range(bullet, master_spark):
+                    boss_bullets_to_remove.append(bullet)
+            
+            # 範囲内のボス弾を削除し、エフェクトを追加
+            for bullet in boss_bullets_to_remove:
+                if bullet in self.boss_bullets:
+                    # 弾消去エフェクトを生成
+                    from utils import create_bullet_clear_effect
+                    clear_effect = create_bullet_clear_effect(bullet.x, bullet.y, color=RED)
+                    self.particles.extend(clear_effect)
+                    self.boss_bullets.remove(bullet)
+                    
+        except Exception as e:
+            print(f"MasterSpark範囲内弾消去エラー: {e}")
+    
+    def is_bullet_in_master_spark_range(self, bullet, master_spark):
+        """弾がMasterSparkの範囲内にあるかチェック"""
+        try:
+            # MasterSparkの範囲判定メソッドを使用
+            if hasattr(master_spark, 'is_point_in_range'):
+                # 弾の中心座標が範囲内かチェック
+                return master_spark.is_point_in_range(bullet.x, bullet.y)
+            else:
+                # フォールバック: 矩形での判定
+                spark_rect = master_spark.rect
+                if hasattr(bullet, 'rect'):
+                    return check_collision(bullet.rect, spark_rect)
+                else:
+                    return (spark_rect.left <= bullet.x <= spark_rect.right and 
+                           0 <= bullet.y <= spark_rect.bottom)
+                
+        except Exception as e:
+            print(f"弾範囲チェックエラー: {e}")
+            return False
+    
+    def maintain_fixed_fps(self):
+        """FPSを60に固定する"""
+        if not FIXED_FPS:
+            return
+        
+        try:
+            current_time = pygame.time.get_ticks()
+            elapsed_time = current_time - self.last_frame_time
+            
+            # 目標フレーム時間（60FPS = 約16.67ms）
+            target_frame_time = MIN_FRAME_TIME * 1000  # ミリ秒に変換
+            
+            # フレーム時間が短すぎる場合は待機
+            if elapsed_time < target_frame_time:
+                sleep_time = target_frame_time - elapsed_time
+                pygame.time.wait(int(sleep_time))
+            
+            # フレーム時間を更新
+            self.last_frame_time = pygame.time.get_ticks()
+            
+            # FPS計測（1秒ごと）
+            self.frame_count += 1
+            if current_time - self.fps_start_time >= 1000:  # 1秒経過
+                actual_fps = self.frame_count
+                self.frame_count = 0
+                self.fps_start_time = current_time
+                
+                # FPSが目標値から大きく外れている場合は警告
+                if abs(actual_fps - FPS) > FPS_TOLERANCE:
+                    print(f"FPS警告: 目標={FPS}, 実際={actual_fps}")
+                    
+        except Exception as e:
+            print(f"FPS制御エラー: {e}")
+    
+    def get_actual_fps(self):
+        """現在の実際のFPSを取得"""
+        try:
+            if self.frame_count > 0:
+                current_time = pygame.time.get_ticks()
+                elapsed_time = (current_time - self.fps_start_time) / 1000.0  # 秒に変換
+                if elapsed_time > 0:
+                    return self.frame_count / elapsed_time
+            return 0
+        except Exception as e:
+            print(f"FPS取得エラー: {e}")
+            return 0
 
 if __name__ == "__main__":
     try:

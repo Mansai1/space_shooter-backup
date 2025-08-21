@@ -483,3 +483,25 @@ class MasterSpark:
             particle_alpha = int(255 * (p['life'] / 30))
             particle_color = (255, 255, 255, particle_alpha)
             pygame.draw.circle(screen, particle_color, (int(p['x']), int(p['y'])), 2)
+    
+    def is_point_in_range(self, x, y):
+        """指定された座標がMasterSparkの範囲内にあるかチェック"""
+        try:
+            # プレイヤーのX座標を中心とした範囲内かチェック
+            half_width = self.width // 2
+            left_edge = self.x - half_width
+            right_edge = self.x + half_width
+            
+            # X座標が範囲内で、Y座標が画面上部からプレイヤー位置まで
+            return (left_edge <= x <= right_edge and 0 <= y <= self.y)
+        except Exception as e:
+            print(f"MasterSpark範囲チェックエラー: {e}")
+            return False
+    
+    def get_range_rect(self):
+        """MasterSparkの範囲を表す矩形を取得"""
+        try:
+            return pygame.Rect(self.x - self.width // 2, 0, self.width, self.y)
+        except Exception as e:
+            print(f"MasterSpark範囲矩形取得エラー: {e}")
+            return None

@@ -320,7 +320,7 @@ def draw_title_screen(screen, font, small_font):
     draw_text(screen, "移動: WASD または 矢印キー", width // 2, height // 2 + 40, small_font, GRAY)
     draw_text(screen, "ショット: スペース", width // 2, height // 2 + 60, small_font, GRAY)
     draw_text(screen, "BGM切り替え: M", width // 2, height // 2 + 80, small_font, GRAY)
-    draw_text(screen, "ポーズ: P", width // 2, height // 2 + 100, small_font, GRAY)
+    draw_text(screen, "ポーズ: Pまたはesc", width // 2, height // 2 + 100, small_font, GRAY)
     
     # レーザーと爆弾の説明を追加
     draw_text(screen, "特殊武器: レーザー (貫通) & ボム (範囲攻撃)", width // 2, height // 2 + 140, small_font, CYAN)
@@ -346,8 +346,20 @@ def draw_pause_screen(screen, font):
     overlay.fill(BLACK)
     screen.blit(overlay, (0, 0))
     
-    draw_text_relative(screen, "PAUSED", 0.5, 0.45, font, WHITE)
-    draw_text_relative(screen, "Press P to Resume", 0.5, 0.55, font, WHITE)
+    # 一時停止タイトル
+    draw_text_relative(screen, "一時停止", 0.5, 0.25, font, WHITE)
+    
+    # 操作方法の説明
+    draw_text_relative(screen, "P or ESCで再開", 0.5, 0.35, font, WHITE)
+    
+    # 一時停止中の操作説明
+    draw_text_relative(screen, "P or ESC: 一時停止", 0.5, 0.45, font, GRAY)
+    draw_text_relative(screen, "Q: タイトルに戻る", 0.5, 0.55, font, GRAY)
+    
+    # ゲーム中の操作説明
+    draw_text_relative(screen, "SPACE: ショット", 0.5, 0.65, font, GRAY)
+    draw_text_relative(screen, "B: 必殺技発動", 0.5, 0.75, font, GRAY)
+    draw_text_relative(screen, " M: ミュージック切り替え", 0.5, 0.85, font, GRAY)
 
 def draw_sound_status(screen, sound_manager, small_font):
     """サウンド状態を表示"""
@@ -541,3 +553,77 @@ def draw_fps_counter(screen, fps, font, position="topright", bg_alpha=180):
         # FPS表示でエラーが発生した場合は何もしない
         print(f"FPS表示エラー: {e}")
         return None
+
+def create_bullet_clear_effect(x, y, color=WHITE, particle_count=8):
+    """弾消去時のエフェクトパーティクルを生成"""
+    particles = []
+    for i in range(particle_count):
+        angle = (360 / particle_count) * i
+        angle_rad = math.radians(angle)
+        speed = random.uniform(2, 5)
+        
+        particle = {
+            'x': x,
+            'y': y,
+            'vx': math.cos(angle_rad) * speed,
+            'vy': math.sin(angle_rad) * speed,
+            'life': random.randint(15, 25),
+            'max_life': 25,
+            'color': color,
+            'size': random.randint(2, 4)
+        }
+        particles.append(particle)
+    
+    return particles
+
+def calculate_frame_timing(target_fps=60):
+    """フレームタイミングを計算"""
+    target_frame_time = 1.0 / target_fps
+    return target_frame_time
+
+def sleep_until_next_frame(last_frame_time, target_fps=60):
+    """次のフレームまで待機"""
+    try:
+        import time
+        current_time = time.time()
+        elapsed = current_time - last_frame_time
+        target_frame_time = 1.0 / target_fps
+        
+        if elapsed < target_frame_time:
+            sleep_time = target_frame_time - elapsed
+            time.sleep(sleep_time)
+        
+        return time.time()
+    except Exception as e:
+        print(f"フレーム待機エラー: {e}")
+        return last_frame_time
+
+def get_system_fps_info():
+    """システムのFPS情報を取得"""
+    try:
+        import pygame
+        clock = pygame.time.Clock()
+        # テスト用のFPS計測
+        start_time = pygame.time.get_ticks()
+        frame_count = 0
+        
+        # 短時間でFPSを計測
+        while pygame.time.get_ticks() - start_time < 100:  # 100ms間計測
+            frame_count += 1
+            clock.tick(1000)  # 最大FPSで計測
+        
+        elapsed = (pygame.time.get_ticks() - start_time) / 1000.0
+        max_fps = frame_count / elapsed if elapsed > 0 else 0
+        
+        return {
+            'max_fps': int(max_fps),
+            'target_fps': 60,
+            'can_maintain_60fps': max_fps >= 60
+        }
+    except Exception as e:
+        print(f"システムFPS情報取得エラー: {e}")
+        return {
+            'max_fps': 0,
+            'target_fps': 60,
+            'can_maintain_60fps': False
+        }

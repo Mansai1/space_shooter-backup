@@ -6,6 +6,11 @@ SCREEN_HEIGHT = 600
 SCREEN_ASPECT_RATIO = SCREEN_WIDTH / SCREEN_HEIGHT  # 画面比率
 FPS = 60
 
+# FPS制御設定
+FIXED_FPS = True  # FPSを固定するかどうか
+FPS_TOLERANCE = 2  # FPS許容誤差（フレーム）
+MIN_FRAME_TIME = 1.0 / FPS  # 最小フレーム時間（秒）
+
 # 画面比率対応設定
 MIN_SCREEN_WIDTH = 640   # 最小画面幅
 MIN_SCREEN_HEIGHT = 480  # 最小画面高さ
