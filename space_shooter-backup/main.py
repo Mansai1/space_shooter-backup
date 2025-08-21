@@ -22,28 +22,67 @@ from damage_number import DamageNumber # 追加
 
 class Game:
     def __init__(self):
-        pygame.init()
+        # pygameの初期化を安全に行う
+        try:
+            pygame.init()
+            # ディスプレイモジュールの初期化を確認
+            if not pygame.display.get_init():
+                pygame.display.init()
+        except Exception as e:
+            print(f"pygame初期化エラー: {e}")
+            sys.exit(1)
+        
         # デスクトップの解像度を取得
-        info = pygame.display.Info()
-        desktop_width = info.current_w
-        desktop_height = info.current_h
+        try:
+            info = pygame.display.Info()
+            desktop_width = info.current_w
+            desktop_height = info.current_h
+        except Exception as e:
+            print(f"ディスプレイ情報取得エラー: {e}")
+            # デフォルト値を設定
+            desktop_width = SCREEN_WIDTH
+            desktop_height = SCREEN_HEIGHT
 
         # 元のアスペクト比を維持しつつ、デスクトップサイズに収まるように調整
         aspect_ratio = SCREEN_WIDTH / SCREEN_HEIGHT
         
-        # 幅を基準に高さを計算
-        new_width = desktop_width
-        new_height = int(new_width / aspect_ratio)
+        try:
+            # 幅を基準に高さを計算
+            new_width = desktop_width
+            new_height = int(new_width / aspect_ratio)
 
-        # 計算された高さがデスクトップの高さを超える場合、高さを基準に幅を再計算
-        if new_height > desktop_height:
-            new_height = desktop_height
-            new_width = int(new_height * aspect_ratio)
+            # 計算された高さがデスクトップの高さを超える場合、高さを基準に幅を再計算
+            if new_height > desktop_height:
+                new_height = desktop_height
+                new_width = int(new_height * aspect_ratio)
+            
+            # 最小・最大サイズの制限を適用
+            new_width = max(MIN_SCREEN_WIDTH, min(new_width, MAX_SCREEN_WIDTH))
+            new_height = max(MIN_SCREEN_HEIGHT, min(new_height, MAX_SCREEN_HEIGHT))
+            
+        except Exception as e:
+            print(f"画面サイズ計算エラー: {e}")
+            # エラーが発生した場合はデフォルトサイズを使用
+            new_width = SCREEN_WIDTH
+            new_height = SCREEN_HEIGHT
         
         self.fullscreen = False  # 追加: 全画面状態フラグ
         self.desktop_width = desktop_width
         self.desktop_height = desktop_height
-        self.set_screen(new_width, new_height, fullscreen=False)
+        self.original_aspect_ratio = aspect_ratio  # 元のアスペクト比を保存
+        
+        # 画面設定を試行
+        try:
+            self.set_screen(new_width, new_height, fullscreen=False)
+        except Exception as e:
+            print(f"初期画面設定エラー: {e}")
+            # エラーが発生した場合はデフォルト設定を使用
+            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.game_viewport = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+            self.screen_scale_x = 1.0
+            self.screen_scale_y = 1.0
+            self.current_width = SCREEN_WIDTH
+            self.current_height = SCREEN_HEIGHT
         pygame.display.set_caption("Space Shooter - Enemy Variety Edition")
         self.clock = pygame.time.Clock()
         self.font = init_font()
@@ -74,31 +113,10 @@ class Game:
         self.game_state = "TITLE"  # TITLE, PLAYING, PAUSED, GAME_OVER, UPGRADE, LEVEL_UP_CHOICE
         self.is_paused = False
 
-        # タイトル画面のボタン
-        # 元の論理的な座標でRectを定義
-        original_start_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 50)
-        original_upgrade_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 20, 200, 50)
-        original_quit_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 90, 200, 50)
-
-        # スケーリングされたRectを計算
-        self.start_button = pygame.Rect(
-            int(original_start_button_rect.x * self.screen_scale_x),
-            int(original_start_button_rect.y * self.screen_scale_y),
-            int(original_start_button_rect.width * self.screen_scale_x),
-            int(original_start_button_rect.height * self.screen_scale_y)
-        )
-        self.upgrade_button = pygame.Rect(
-            int(original_upgrade_button_rect.x * self.screen_scale_x),
-            int(original_upgrade_button_rect.y * self.screen_scale_y),
-            int(original_upgrade_button_rect.width * self.screen_scale_x),
-            int(original_upgrade_button_rect.height * self.screen_scale_y)
-        )
-        self.quit_button = pygame.Rect(
-            int(original_quit_button_rect.x * self.screen_scale_x),
-            int(original_quit_button_rect.y * self.screen_scale_y),
-            int(original_quit_button_rect.width * self.screen_scale_x),
-            int(original_quit_button_rect.height * self.screen_scale_y)
-        )
+        # タイトル画面のボタン（描画時に動的に作成されるため、初期化は不要）
+        self.start_button = None
+        self.upgrade_button = None
+        self.quit_button = None
         
         # レベルアップ選択画面の初期化
         self.level_up_upgrade_screen = LevelUpUpgradeScreen(self.screen, self.font, self.small_font)
@@ -183,13 +201,13 @@ class Game:
 
             if self.game_state == "TITLE":
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    if self.start_button.collidepoint(event.pos):
+                    if self.start_button and self.start_button.collidepoint(event.pos):
                         self.reset_game()
                         if self.sound_manager:
                             self.sound_manager.play_music()
-                    elif self.upgrade_button.collidepoint(event.pos):
+                    elif self.upgrade_button and self.upgrade_button.collidepoint(event.pos):
                         self.game_state = "UPGRADE"
-                    elif self.quit_button.collidepoint(event.pos):
+                    elif self.quit_button and self.quit_button.collidepoint(event.pos):
                         return False
             
             if event.type == pygame.KEYDOWN:
@@ -727,98 +745,118 @@ class Game:
     
     def draw(self):
         """描画処理"""
-        # 背景画像のスクロール描画（横方向にもタイル状に描画して黒帯を防ぐ）
+        # 全画面時は黒い背景で塗りつぶし
+        if self.fullscreen:
+            self.screen.fill(BLACK)
+        
+        # 背景画像のスクロール描画（ゲームビューポート内に制限）
         bg_scaled = pygame.transform.scale(self.background_image, (self.current_width, self.current_height))
         for x in range(0, self.current_width, bg_scaled.get_width()):
             y1 = self.scroll_y
             y2 = self.scroll_y - self.current_height
-            self.screen.blit(bg_scaled, (x, y1))
-            self.screen.blit(bg_scaled, (x, y2))
+            # ゲームビューポート内に描画
+            self.screen.blit(bg_scaled, (x + self.game_viewport.x, y1 + self.game_viewport.y))
+            self.screen.blit(bg_scaled, (x + self.game_viewport.x, y2 + self.game_viewport.y))
 
         if self.game_state == "TITLE":
-            # タイトルとボタンを中央揃え・等間隔で配置
-            center_x = self.current_width // 2
-            title_y = int(self.current_height * 0.22)
-            button_w, button_h = 240, 60
-            button_gap = 30
+            # タイトルとボタンを画面比率に応じて配置
             # タイトル
-            draw_text_absolute(self.screen, "Space Shooter", center_x, title_y, self.font, WHITE, anchor="center")
-            # ボタン配置
-            total_height = 3 * button_h + 2 * button_gap
-            start_y = self.current_height // 2 - total_height // 2
-            btn_rects = []
-            for i in range(3):
-                y = start_y + i * (button_h + button_gap)
-                btn_rects.append(pygame.Rect(center_x - button_w // 2, y, button_w, button_h))
-            self.start_button, self.upgrade_button, self.quit_button = btn_rects
-            # Start
-            pygame.draw.rect(self.screen, DARK_GRAY, self.start_button, border_radius=10)
-            draw_text_absolute(self.screen, "Start", self.start_button.centerx, self.start_button.centery, self.font, WHITE, anchor="center")
-            # Upgrade
-            pygame.draw.rect(self.screen, DARK_GRAY, self.upgrade_button, border_radius=10)
-            draw_text_absolute(self.screen, "Upgrade", self.upgrade_button.centerx, self.upgrade_button.centery, self.font, WHITE, anchor="center")
-            # Quit
-            pygame.draw.rect(self.screen, DARK_GRAY, self.quit_button, border_radius=10)
-            draw_text_absolute(self.screen, "Quit", self.quit_button.centerx, self.quit_button.centery, self.font, WHITE, anchor="center")
+            draw_text_relative(self.screen, "Space Shooter", 0.5, 0.22, self.font, WHITE, anchor="center")
+            
+            # ボタン配置（画面比率に応じてサイズと位置を調整）
+            button_width_percent = 0.3  # 画面幅の30%
+            button_height_percent = 0.1  # 画面高さの10%
+            button_gap_percent = 0.05    # 画面高さの5%
+            
+            # ボタンの位置を計算
+            start_y_percent = 0.45
+            upgrade_y_percent = start_y_percent + button_height_percent + button_gap_percent
+            quit_y_percent = upgrade_y_percent + button_height_percent + button_gap_percent
+            
+            # ボタンを作成
+            self.start_button = create_adaptive_button(
+                self.screen, "Start", 0.35, start_y_percent, 
+                button_width_percent, button_height_percent, self.font
+            )
+            self.upgrade_button = create_adaptive_button(
+                self.screen, "Upgrade", 0.35, upgrade_y_percent, 
+                button_width_percent, button_height_percent, self.font
+            )
+            self.quit_button = create_adaptive_button(
+                self.screen, "Quit", 0.35, quit_y_percent, 
+                button_width_percent, button_height_percent, self.font
+            )
 
         elif self.game_state == "PLAYING" or self.is_paused:
             # --- ゲーム要素の描画 ---
-            self.player.draw(self.screen)
+            # ゲームビューポート内に描画するため、一時的なサブサーフェスを作成
+            if self.fullscreen:
+                game_surface = pygame.Surface((self.current_width, self.current_height))
+                game_surface.set_colorkey((0, 0, 0))  # 透明色を設定
+            else:
+                game_surface = self.screen
+            
+            self.player.draw(game_surface)
 
             for bullet in self.bullets:
-                bullet.draw(self.screen)
+                bullet.draw(game_surface)
 
             for bullet in self.enemy_bullets:
                 if bullet.active:
-                    bullet.draw(self.screen)
+                    bullet.draw(game_surface)
 
             # ボス弾の描画
             for bullet in self.boss_bullets:
                 if bullet.active:
-                    bullet.draw(self.screen)
+                    bullet.draw(game_surface)
 
             for enemy in self.enemies:
-                enemy.draw(self.screen)
+                enemy.draw(game_surface)
 
             # ボスの描画
             current_boss = self.boss_manager.get_current_boss()
             if current_boss:
-                current_boss.draw(self.screen)
+                current_boss.draw(game_surface)
                 # ボスのHPバーとスペルカード名を描画
-                draw_boss_health_bar(self.screen, current_boss, self.font)
-                draw_boss_spell_card_name(self.screen, current_boss, self.font)
+                draw_boss_health_bar(game_surface, current_boss, self.font)
+                draw_boss_spell_card_name(game_surface, current_boss, self.font)
 
             for powerup in self.powerups:
-                powerup.draw(self.screen)
+                powerup.draw(game_surface)
 
             for attack in self.special_attacks:
-                attack.draw(self.screen)
+                attack.draw(game_surface)
 
             # マスタースパークがアクティブな場合、敵にアウトラインを描画
             for attack in self.special_attacks:
                 if isinstance(attack, MasterSpark):
                     for enemy in self.enemies:
                         if check_collision(attack.rect, enemy.rect):
-                            enemy.draw_outline(self.screen, YELLOW, 2) # 黄色いアウトライン
+                            enemy.draw_outline(game_surface, YELLOW, 2) # 黄色いアウトライン
                     current_boss = self.boss_manager.get_current_boss()
                     if current_boss and check_collision(attack.rect, current_boss.rect):
-                        current_boss.draw_outline(self.screen, YELLOW, 3) # ボスには太いアウトライン
+                        current_boss.draw_outline(game_surface, YELLOW, 3) # ボスには太いアウトライン
 
             # パーティクルの描画
-            draw_particles(self.screen, self.particles)
+            draw_particles(game_surface, self.particles)
 
             # ダメージ数値の描画
             for dn in self.damage_numbers:
-                dn.draw(self.screen)
+                dn.draw(game_surface)
+            
+            # 全画面時はゲームサーフェスをメインスクリーンに描画
+            if self.fullscreen:
+                self.screen.blit(game_surface, self.game_viewport)
 
             # --- UI の描画 ---
+            # UI要素は全画面時でもメインスクリーンに直接描画（ビューポート外でも表示）
             draw_score(self.screen, self.score, self.font)
             draw_lives(self.screen, self.lives, self.font)
             draw_powerups(self.screen, self.player, self.small_font)
             # draw_enemy_info(self.screen, self.enemies, self.small_font)
             draw_level_info(self.screen, self.level_system, self.font, self.small_font)
             # draw_stats_panel(self.screen, self.level_system, self.font, self.small_font)
-            # draw_difficulty_info(self.screen, self.level_system, self.small_font)
+            # draw_difficulty_info(self.screen, self.level_system, self.font, self.small_font)
 
             # 必殺技ゲージの描画
             draw_special_gauge(self.screen, self.player, self.font)
@@ -870,10 +908,10 @@ class Game:
         elif self.game_state == "STAGE_CLEAR":
             draw_stage_clear(self.screen, self.font)
 
+        # FPS表示（画面右上に目立つように表示）
+        self.draw_fps_display()
+        
         pygame.display.flip()
-        # FPS表示
-        fps = int(self.clock.get_fps())
-        draw_text_relative(self.screen, f"FPS: {fps}", 0.95, 0.05, self.small_font, WHITE, anchor="topright")
     
     def run(self):
         """メインゲームループ"""
@@ -901,48 +939,127 @@ class Game:
         sys.exit()
 
     def set_screen(self, width, height, fullscreen):
-        """画面サイズ・スケール・ボタンを再計算（全画面時はSCALEDフラグで黒帯防止）"""
-        flags = pygame.DOUBLEBUF
-        if fullscreen:
-            flags |= pygame.FULLSCREEN
-            if hasattr(pygame, 'SCALED'):
-                flags |= pygame.SCALED
-        self.screen = pygame.display.set_mode((width, height), flags)
-        self.screen_scale_x = width / SCREEN_WIDTH
-        self.screen_scale_y = height / SCREEN_HEIGHT
-        self.current_width = width
-        self.current_height = height
-        if hasattr(self, 'player') and self.player:
-            self.player.game = self  # 画面切替時にもPlayerにGame参照を渡す
-        if hasattr(self, 'create_buttons'):
-            self.create_buttons()
+        """画面サイズ・スケール・ボタンを再計算（アスペクト比維持と黒帯処理）"""
+        try:
+            # 基本的なフラグを設定
+            flags = pygame.DOUBLEBUF
+            
+            # 全画面モードの設定
+            if fullscreen:
+                # 全画面フラグを設定（SCALEDは使用しない）
+                flags |= pygame.FULLSCREEN
+                
+                # アスペクト比を維持した画面サイズを計算
+                target_aspect = self.original_aspect_ratio
+                if width / height > target_aspect:
+                    # 幅が広い場合、高さに合わせて幅を調整
+                    new_height = height
+                    new_width = int(height * target_aspect)
+                    offset_x = (width - new_width) // 2
+                    offset_y = 0
+                else:
+                    # 高さが高い場合、幅に合わせて高さを調整
+                    new_width = width
+                    new_height = int(width / target_aspect)
+                    offset_x = 0
+                    offset_y = (height - new_height) // 2
+                
+                self.game_viewport = pygame.Rect(offset_x, offset_y, new_width, new_height)
+                self.screen_scale_x = new_width / SCREEN_WIDTH
+                self.screen_scale_y = new_height / SCREEN_HEIGHT
+                self.current_width = new_width
+                self.current_height = new_height
+            else:
+                # ウィンドウモード時は通常通り
+                self.game_viewport = pygame.Rect(0, 0, width, height)
+                self.screen_scale_x = width / SCREEN_WIDTH
+                self.screen_scale_y = height / SCREEN_HEIGHT
+                self.current_width = width
+                self.current_height = height
+            
+            # 画面モードを設定（エラーハンドリング付き）
+            try:
+                self.screen = pygame.display.set_mode((width, height), flags)
+            except pygame.error as e:
+                print(f"画面設定エラー: {e}")
+                # フォールバック: 基本的な設定で再試行
+                fallback_flags = pygame.DOUBLEBUF
+                if fullscreen:
+                    fallback_flags |= pygame.FULLSCREEN
+                
+                try:
+                    self.screen = pygame.display.set_mode((width, height), fallback_flags)
+                except pygame.error as e2:
+                    print(f"フォールバック画面設定も失敗: {e2}")
+                    # 最後の手段: デフォルトサイズでウィンドウモード
+                    self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+                    self.game_viewport = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+                    self.screen_scale_x = 1.0
+                    self.screen_scale_y = 1.0
+                    self.current_width = SCREEN_WIDTH
+                    self.current_height = SCREEN_HEIGHT
+                    self.fullscreen = False
+            
+            # プレイヤーとボタンの更新
+            if hasattr(self, 'player') and self.player:
+                self.player.game = self
+            if hasattr(self, 'create_buttons'):
+                self.create_buttons()
+                
+        except Exception as e:
+            print(f"画面設定で予期しないエラー: {e}")
+            # エラーが発生した場合はデフォルト設定を使用
+            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.game_viewport = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+            self.screen_scale_x = 1.0
+            self.screen_scale_y = 1.0
+            self.current_width = SCREEN_WIDTH
+            self.current_height = SCREEN_HEIGHT
+            self.fullscreen = False
 
     def create_buttons(self):
-        """スケーリングされたボタンRectを再計算"""
-        width = self.current_width
-        height = self.current_height
-        original_start_button_rect = pygame.Rect(width // 2 - 100, height // 2 - 50, 200, 50)
-        original_upgrade_button_rect = pygame.Rect(width // 2 - 100, height // 2 + 20, 200, 50)
-        original_quit_button_rect = pygame.Rect(width // 2 - 100, height // 2 + 90, 200, 50)
-        self.start_button = pygame.Rect(
-            int(original_start_button_rect.x),
-            int(original_start_button_rect.y),
-            int(original_start_button_rect.width),
-            int(original_start_button_rect.height)
-        )
-        self.upgrade_button = pygame.Rect(
-            int(original_upgrade_button_rect.x),
-            int(original_upgrade_button_rect.y),
-            int(original_upgrade_button_rect.width),
-            int(original_upgrade_button_rect.height)
-        )
-        self.quit_button = pygame.Rect(
-            int(original_quit_button_rect.x),
-            int(original_quit_button_rect.y),
-            int(original_quit_button_rect.width),
-            int(original_quit_button_rect.height)
-        )
+        """画面比率に応じたボタンRectを再計算"""
+        # ボタンは描画時に動的に作成されるため、ここでは何もしない
+        # 画面サイズ変更時は次回の描画で自動的に再計算される
+        pass
+    
+    def draw_fps_display(self):
+        """画面右上にFPSを表示"""
+        try:
+            # 現在のFPSを取得
+            fps = int(self.clock.get_fps())
+            
+            # utils.pyのdraw_fps_counter関数を使用してFPSを表示
+            from utils import draw_fps_counter
+            draw_fps_counter(self.screen, fps, self.small_font, position="topright")
+            
+        except Exception as e:
+            # FPS表示でエラーが発生した場合は何もしない
+            pass
 
 if __name__ == "__main__":
-    game = Game()
-    game.run()
+    try:
+        # pygameの初期化を確認
+        if not pygame.get_init():
+            pygame.init()
+        
+        # ディスプレイモジュールの初期化を確認
+        if not pygame.display.get_init():
+            pygame.display.init()
+        
+        # ゲームを開始
+        game = Game()
+        game.run()
+        
+    except Exception as e:
+        print(f"ゲーム起動エラー: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # pygameのクリーンアップ
+        try:
+            pygame.quit()
+        except:
+            pass
+        
+        sys.exit(1)

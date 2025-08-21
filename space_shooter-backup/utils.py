@@ -369,15 +369,24 @@ def draw_weapon_status(screen, player, small_font):
     draw_text_relative(screen, f"武器: {current_weapon}", 0.95, 0.9, small_font, weapon_color, anchor="bottomright")
 
 
-def draw_special_gauge(screen, player, x, y, width, height):
-    """必殺技ゲージを描画"""
+def draw_special_gauge(screen, player, font):
+    """必殺技ゲージを描画（画面比率対応版）"""
+    # 画面サイズに応じてゲージの位置とサイズを調整
+    screen_width, screen_height = screen.get_size()
+    
+    # ゲージのサイズと位置を画面比率に応じて調整
+    gauge_width = int(screen_width * 0.15)  # 画面幅の15%
+    gauge_height = int(screen_height * 0.03)  # 画面高さの3%
+    x = int(screen_width * 0.05)  # 画面左端から5%
+    y = int(screen_height * 0.85)  # 画面下端から15%
+    
     # ゲージの背景
-    bg_rect = pygame.Rect(x, y, width, height)
+    bg_rect = pygame.Rect(x, y, gauge_width, gauge_height)
     pygame.draw.rect(screen, GRAY, bg_rect)
     
     # ゲージの充填部分
-    fill_width = (player.special_gauge / player.max_special_gauge) * width
-    fill_rect = pygame.Rect(x, y, fill_width, height)
+    fill_width = (player.special_gauge / player.max_special_gauge) * gauge_width
+    fill_rect = pygame.Rect(x, y, fill_width, gauge_height)
     
     # ゲージの色を決定
     if player.special_gauge >= player.max_special_gauge:
@@ -390,7 +399,145 @@ def draw_special_gauge(screen, player, x, y, width, height):
     # ゲージの枠線
     pygame.draw.rect(screen, WHITE, bg_rect, 2)
     
-    # テキスト
-    font = pygame.font.Font(None, 20)
-    text_surf = font.render("SP", True, WHITE)
-    screen.blit(text_surf, (x + 5, y + 2))
+    # テキスト（フォントサイズも画面比率に応じて調整）
+    text_size = max(16, int(screen_height * 0.02))  # 最小16px、画面高さの2%
+    try:
+        text_font = pygame.font.Font(None, text_size)
+    except:
+        text_font = font  # フォールバック
+    
+    text_surf = text_font.render("SP", True, WHITE)
+    text_rect = text_surf.get_rect()
+    text_rect.midleft = (x + 10, y + gauge_height // 2)
+    screen.blit(text_surf, text_rect)
+
+def draw_adaptive_text(screen, text, x_percent, y_percent, base_font, color=WHITE, anchor="center", min_size=16):
+    """画面比率に応じてフォントサイズを調整してテキストを描画"""
+    screen_width, screen_height = screen.get_size()
+    
+    # 画面サイズに応じてフォントサイズを調整
+    base_size = base_font.get_height()
+    scale_factor = min(screen_width / 800, screen_height / 600)  # 800x600を基準とする
+    new_size = max(min_size, int(base_size * scale_factor))
+    
+    try:
+        # 新しいサイズでフォントを作成
+        adaptive_font = pygame.font.Font(base_font.get_filename(), new_size)
+    except:
+        # フォールバック: 既存のフォントを使用
+        adaptive_font = base_font
+    
+    # 相対座標を絶対座標に変換
+    x_abs = int(screen_width * x_percent)
+    y_abs = int(screen_height * y_percent)
+    
+    # テキストを描画
+    draw_text_absolute(screen, text, x_abs, y_abs, adaptive_font, color, anchor)
+
+def create_adaptive_button(screen, text, x_percent, y_percent, width_percent, height_percent, font, color=DARK_GRAY, text_color=WHITE):
+    """画面比率に応じてボタンのサイズと位置を調整"""
+    screen_width, screen_height = screen.get_size()
+    
+    x = int(screen_width * x_percent)
+    y = int(screen_height * y_percent)
+    width = int(screen_width * width_percent)
+    height = int(screen_height * height_percent)
+    
+    button_rect = pygame.Rect(x, y, width, height)
+    
+    # ボタンの背景を描画
+    pygame.draw.rect(screen, color, button_rect, border_radius=10)
+    
+    # テキストを中央に配置
+    draw_text_absolute(screen, text, button_rect.centerx, button_rect.centery, font, text_color, anchor="center")
+    
+    return button_rect
+
+def draw_adaptive_ui_panel(screen, x_percent, y_percent, width_percent, height_percent, color=DARK_GRAY, alpha=128):
+    """画面比率に応じてUIパネルを描画"""
+    screen_width, screen_height = screen.get_size()
+    
+    x = int(screen_width * x_percent)
+    y = int(screen_height * y_percent)
+    width = int(screen_width * width_percent)
+    height = int(screen_height * height_percent)
+    
+    # 半透明のパネルを作成
+    panel = pygame.Surface((width, height))
+    panel.set_alpha(alpha)
+    panel.fill(color)
+    
+    # パネルを描画
+    screen.blit(panel, (x, y))
+    
+    return pygame.Rect(x, y, width, height)
+
+def draw_fps_counter(screen, fps, font, position="topright", bg_alpha=180):
+    """画面にFPSカウンターを表示（画面比率対応）"""
+    try:
+        # FPSの値に応じて色を変更
+        if fps >= 55:  # 高FPS
+            fps_color = GREEN
+        elif fps >= 45:  # 中FPS
+            fps_color = YELLOW
+        else:  # 低FPS
+            fps_color = RED
+        
+        # FPSテキストを作成
+        fps_text = f"FPS: {fps}"
+        
+        # 画面サイズを取得
+        screen_width, screen_height = screen.get_size()
+        
+        # 位置を計算
+        if position == "topright":
+            x = screen_width - 20
+            y = 20
+            anchor = "topright"
+        elif position == "topleft":
+            x = 20
+            y = 20
+            anchor = "topleft"
+        elif position == "bottomright":
+            x = screen_width - 20
+            y = screen_height - 20
+            anchor = "bottomright"
+        elif position == "bottomleft":
+            x = 20
+            y = screen_height - 20
+            anchor = "bottomleft"
+        else:  # デフォルトは右上
+            x = screen_width - 20
+            y = 20
+            anchor = "topright"
+        
+        # テキストを描画
+        text_surface = font.render(fps_text, True, fps_color)
+        text_rect = text_surface.get_rect()
+        
+        # アンカーに応じて位置を設定
+        if anchor == "topright":
+            text_rect.topright = (x, y)
+        elif anchor == "topleft":
+            text_rect.topleft = (x, y)
+        elif anchor == "bottomright":
+            text_rect.bottomright = (x, y)
+        elif anchor == "bottomleft":
+            text_rect.bottomleft = (x, y)
+        
+        # 背景の四角形を描画（半透明）
+        bg_rect = text_rect.inflate(10, 4)
+        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height))
+        bg_surface.set_alpha(bg_alpha)
+        bg_surface.fill(BLACK)
+        
+        # 背景とテキストを描画
+        screen.blit(bg_surface, bg_rect)
+        screen.blit(text_surface, text_rect)
+        
+        return text_rect
+        
+    except Exception as e:
+        # FPS表示でエラーが発生した場合は何もしない
+        print(f"FPS表示エラー: {e}")
+        return None

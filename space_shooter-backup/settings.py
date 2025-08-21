@@ -3,7 +3,14 @@ import pygame
 # 画面設定
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
+SCREEN_ASPECT_RATIO = SCREEN_WIDTH / SCREEN_HEIGHT  # 画面比率
 FPS = 60
+
+# 画面比率対応設定
+MIN_SCREEN_WIDTH = 640   # 最小画面幅
+MIN_SCREEN_HEIGHT = 480  # 最小画面高さ
+MAX_SCREEN_WIDTH = 3840  # 最大画面幅（4K対応）
+MAX_SCREEN_HEIGHT = 2160 # 最大画面高さ（4K対応）
 
 # 色定義
 BLACK = (0, 0, 0)
